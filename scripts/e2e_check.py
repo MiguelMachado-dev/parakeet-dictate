@@ -110,9 +110,10 @@ class Keyboard:
 
     def release(self, vk: int) -> float:
         self.require_foreground()
+        released_at = time.perf_counter()
         inject.send_keys([(vk, True)], tag=0)
         self.held.discard(vk)
-        return time.perf_counter()
+        return released_at
 
     def release_all(self) -> None:
         # A key-up types nothing, and a synthetic key left down would turn the user's next

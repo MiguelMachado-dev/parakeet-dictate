@@ -18,9 +18,8 @@ MAPVK_VK_TO_VSC = 0
 VK_CONTROL = 0x11
 VK_ESCAPE = 0x1B
 VK_RCONTROL = 0xA3
-VK_RMENU = 0xA5
 VK_V = 0x56
-EXTENDED_VKS = {VK_RCONTROL, VK_RMENU}
+EXTENDED_VKS = {VK_RCONTROL}
 
 # Stamped into dwExtraInfo of our own synthetic keys so the hotkey listener can skip them.
 INJECTED_TAG = 0x5044

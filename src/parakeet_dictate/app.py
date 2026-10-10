@@ -31,6 +31,7 @@ from .reducer import (
     Cancel,
     Cue,
     DiscardRecording,
+    Effect,
     Event,
     HotkeyDown,
     HotkeyUp,
@@ -71,6 +72,7 @@ QUIT_EVENT_NAME = "Local\\parakeet-dictate-quit"
 ERROR_ALREADY_EXISTS = 183
 EVENT_MODIFY_STATE = 0x0002
 INFINITE = 0xFFFFFFFF
+WAIT_OBJECT_0 = 0
 WM_KEYDOWN, WM_SYSKEYDOWN = 0x0100, 0x0104
 # While a paste waits for the hotkey release, also poll the key itself, so a key-up
 # the hook missed cannot strand the text.
@@ -173,7 +175,7 @@ class Dictation:
         for effect in effects:
             self._execute(effect)
 
-    def _execute(self, effect: object) -> None:
+    def _execute(self, effect: Effect) -> None:
         match effect:
             case StartRecording():
                 try:
@@ -194,14 +196,14 @@ class Dictation:
             case DiscardRecording():
                 self._recorder.discard()
             case Paste(text):
+                since_release_ms = (time.perf_counter() - self._released_at) * 1000
                 try:
                     self._paste(text + " " if self._config.append_space else text)
                 except Exception:
                     log.exception("paste failed")
                     self._cues.play(Cue.ERROR)
                 else:
-                    ms = (time.perf_counter() - self._released_at) * 1000
-                    log.info("pasted %d chars, %.0f ms after the last hotkey release", len(text), ms)
+                    log.info("pasted %d chars, sent %.0f ms after the hotkey release", len(text), since_release_ms)
             case PlaySound(cue):
                 self._cues.play(cue)
 
@@ -394,9 +396,9 @@ def main() -> int:
             cues.play(Cue.ERROR)
 
     def wait_for_quit() -> None:
-        kernel32.WaitForSingleObject(quit_event, INFINITE)
-        log.info("quit requested by another process")
-        tray.icon.stop()
+        if kernel32.WaitForSingleObject(quit_event, INFINITE) == WAIT_OBJECT_0:
+            log.info("quit requested by another process")
+            tray.icon.stop()
 
     loader = threading.Thread(target=load, name="loader")
     loader.start()
