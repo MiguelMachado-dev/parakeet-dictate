@@ -26,6 +26,7 @@ from pynput import keyboard
 from . import inject
 from .config import LOG_PATH, OVERLAY_CHOICES, TRAY_CHOICES_PATH, Config, ConfigError, load_api_key, load_config
 from .overlay import Overlay
+from .overlay_frame import Renderer
 from .polish import GlmClient, PolishError
 from .recorder import Audio, Recorder, default_input_rate
 from .reducer import (
@@ -353,12 +354,60 @@ class TrayChoices:
             log.exception("could not save the tray choices")
 
 
+class ActiveOverlay:
+    """Which overlay style shows, if any, and the one window that draws it. The window opens the first
+    time a style is active, so an app started with "off" creates none until the tray picks a style."""
+
+    def __init__(self, style: str, open_window: Callable[[Renderer], Overlay], cues: Cues) -> None:
+        self.style = "off"
+        self._open_window = open_window
+        self._cues = cues
+        self._overlay: Overlay | None = None
+        self._last: Transition | None = None
+        # The controller notifies while the tray switches; without it a resync of an older transition
+        # could reach the overlay after a newer one.
+        self._lock = threading.Lock()
+        self.switch(style)
+
+    def switch(self, style: str) -> bool:
+        """Draw style from now on, or "off". False when the window could not be created; it stays off."""
+        renderer = STYLES.get(style)
+        with self._lock:
+            if renderer is not None and self._overlay is None:
+                try:
+                    self._overlay = self._open_window(renderer)
+                except OSError:
+                    log.exception("could not create the overlay window; dictating without it")
+                    self._cues.play(Cue.ERROR)
+                    return False
+            elif self._overlay is not None:
+                self._overlay.restyle(renderer)
+            self.style = style
+            if renderer is not None and self._last is not None:
+                # Off dropped the dictation on screen; without this it would only reappear on the next transition.
+                self._overlay.notify(self._last)
+            return True
+
+    def notify(self, transition: Transition) -> None:
+        with self._lock:
+            self._last = transition
+            if self.style != "off":
+                self._overlay.notify(transition)
+
+    def close(self) -> None:
+        if self._overlay is not None:
+            self._overlay.close()
+
+
 class Tray:
     COLORS = {"idle": "#9e9e9e", "recording": "#e53935", "transcribing": "#ffb300", "polishing": "#8e24aa"}
 
-    def __init__(self, on_quit: Callable[[], None], choices: TrayChoices, glm_available: bool) -> None:
+    def __init__(
+        self, on_quit: Callable[[], None], choices: TrayChoices, overlay: ActiveOverlay, glm_available: bool
+    ) -> None:
         self.provider = ""
         self._choices = choices
+        self._overlay = overlay
         self.icon = pystray.Icon(
             "parakeet-dictate",
             self._ring("#9e9e9e"),
@@ -370,11 +419,28 @@ class Tray:
                     checked=lambda item: glm_available and choices.postprocess,
                     enabled=glm_available,
                 ),
+                pystray.MenuItem("Overlay", pystray.Menu(*map(self._overlay_item, OVERLAY_CHOICES))),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open log", lambda: os.startfile(LOG_PATH)),
                 pystray.MenuItem("Quit", lambda: on_quit()),
             ),
         )
+
+    def _overlay_item(self, style: str) -> pystray.MenuItem:
+        # A function per item binds each style; pystray passes the icon to a one-argument action,
+        # so a style=style default argument would receive the icon instead.
+        return pystray.MenuItem(
+            style.capitalize(),
+            lambda: self._switch_overlay(style),
+            checked=lambda item: self._overlay.style == style,
+            radio=True,
+        )
+
+    def _switch_overlay(self, style: str) -> None:
+        if self._overlay.switch(style):
+            log.info("overlay switched to %s from the tray", style)
+            self._choices.choose("overlay", style)
+        self.icon.update_menu()
 
     def _toggle_postprocess(self) -> None:
         on = not self._choices.postprocess
@@ -410,14 +476,6 @@ class Tray:
         image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
         ImageDraw.Draw(image).ellipse((8, 8, 56, 56), outline=color, width=8)
         return image
-
-
-def open_overlay(recorder: Recorder, style: str) -> Overlay | None:
-    try:
-        return Overlay(STYLES[style], lambda: recorder.meter.snapshot())
-    except OSError:
-        log.exception("could not create the overlay window; dictating without it")
-        return None
 
 
 def acquire_single_instance() -> int | None:
@@ -483,11 +541,12 @@ def main() -> int:
     api_key = load_api_key()
     glm = GlmClient(config.postprocess, api_key) if api_key else None
     choices = TrayChoices(config, TRAY_CHOICES_PATH)
-    tray = Tray(on_quit=lambda: tray.icon.stop(), choices=choices, glm_available=glm is not None)
     cues = Cues(config.sounds)
+    recorder = Recorder()
+    overlay = ActiveOverlay(choices.overlay, lambda renderer: Overlay(renderer, lambda: recorder.meter.snapshot()), cues)
+    tray = Tray(on_quit=lambda: tray.icon.stop(), choices=choices, overlay=overlay, glm_available=glm is not None)
     stopping = threading.Event()
     running: list[Dictation] = []
-    overlays: list[Overlay] = []
 
     def load() -> None:
         try:
@@ -496,15 +555,10 @@ def main() -> int:
             if stopping.is_set():
                 return
             tray.provider = transcriber.label
-            recorder = Recorder()
-            overlay = None if config.overlay == "off" else open_overlay(recorder, config.overlay)
-            if overlay is not None:
-                overlays.append(overlay)
 
             def on_transition(transition: Transition) -> None:
                 tray.show_state(transition.state)
-                if overlay is not None:
-                    overlay.notify(transition)
+                overlay.notify(transition)
 
             dictation = Dictation(
                 config,
@@ -525,7 +579,7 @@ def main() -> int:
                 postprocessing = f"{'on' if choices.postprocess else 'off'} ({settings})"
             log.info(
                 "ready: provider %s, hotkey %s, post-processing %s, overlay %s",
-                transcriber.provider, config.hotkey, postprocessing, config.overlay if overlay is not None else "off",
+                transcriber.provider, config.hotkey, postprocessing, overlay.style,
             )
         except Exception as e:
             log.exception("startup failed")
@@ -547,8 +601,7 @@ def main() -> int:
     loader.join()
     for dictation in running:
         dictation.stop()
-    for overlay in overlays:
-        overlay.close()
+    overlay.close()
     if glm is not None:
         glm.close()
     kernel32.CloseHandle(quit_event)

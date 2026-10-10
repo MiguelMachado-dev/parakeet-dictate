@@ -44,7 +44,7 @@ Stop the running instance:
 uv run parakeet-dictate --quit
 ```
 
-A tray icon shows the state. A hollow ring means the model is loading, which takes about 7 seconds. Gray means ready, red means recording, amber means transcribing, and violet means GLM is post-processing the transcript. A red ring means startup failed. Hover over the icon to see the state and the active provider (`CUDA` or `CPU int8`). Right-click it for **Post-process with GLM**, **Open log**, and **Quit**. Only one instance runs at a time. A second launch logs a line and exits.
+A tray icon shows the state. A hollow ring means the model is loading, which takes about 7 seconds. Gray means ready, red means recording, amber means transcribing, and violet means GLM is post-processing the transcript. A red ring means startup failed. Hover over the icon to see the state and the active provider (`CUDA` or `CPU int8`). Right-click it for **Post-process with GLM**, **Overlay**, **Open log**, and **Quit**. Only one instance runs at a time. A second launch logs a line and exits.
 
 ## Dictate
 
@@ -64,7 +64,7 @@ While you dictate, a small window above the taskbar shows your microphone level 
 - **It waits 250 ms before it appears.** A shortcut such as Right Ctrl+C never flashes it. The start tone plays at once. If you press another key after the overlay appears, it disappears at once.
 - **It costs nothing while hidden.** Its thread waits for the next dictation and uses no CPU.
 
-It comes in two styles. `fluid` draws translucent ribbons in a night-blue capsule, and `bars` draws mirrored bars in a smoked-glass capsule. Pick one with `overlay = "fluid"` or `overlay = "bars"` in `config.toml`, or turn it off with `overlay = "off"`. To preview a style without dictating, run `uv run python scripts/preview_overlay.py --style bars --out previews/bars` and open `previews/bars/video.mp4`.
+It comes in two styles. `fluid` draws translucent ribbons in a night-blue capsule, and `bars` draws mirrored bars in a smoked-glass capsule. Pick one with `overlay = "fluid"` or `overlay = "bars"` in `config.toml`, or turn it off with `overlay = "off"`. To switch while the app runs, right-click the tray icon and pick **Overlay** > **Fluid**, **Bars**, or **Off**. The change applies at once, even in the middle of a dictation, and the app saves it in `tray_choices.json` ahead of `config.toml`. To preview a style without dictating, run `uv run python scripts/preview_overlay.py --style bars --out previews/bars` and open `previews/bars/video.mp4`.
 
 ## Post-process with GLM
 
@@ -108,7 +108,7 @@ Copy `config.example.toml` to `config.toml` and uncomment the settings to change
 | `provider` | `"cuda"` | `"cuda"` runs fp32 on the GPU. `"cpu"` runs int8 on the CPU. |
 | `sounds` | `true` | Short tones for start, stop, cancel, and error. |
 | `append_space` | `true` | Adds a space after each dictation. |
-| `overlay` | `"fluid"` | The live microphone visualizer above the taskbar while you dictate. `"fluid"` or `"bars"` picks the style. With `"off"`, the app never creates the window. |
+| `overlay` | `"fluid"` | The live microphone visualizer above the taskbar while you dictate. `"fluid"` or `"bars"` picks the style. With `"off"`, the app creates no window until you pick a style from the tray. |
 | `model_dir` | `"models/parakeet-tdt-0.6b-v3"` | Relative to the project root, or absolute. |
 
 Post-processing settings go in a `[postprocess]` table at the end of `config.toml`:
@@ -126,7 +126,7 @@ If `config.toml` has an unknown setting or an invalid value, the app writes the 
 
 ## Tray choices
 
-The app saves what you pick in the tray menu, such as **Post-process with GLM**, in `tray_choices.json` in the project root. A saved choice wins over its setting in `config.toml`, on this start and the next. A setting you never changed from the tray keeps following `config.toml`. Delete `tray_choices.json` to go back to the config settings. If the file holds a value the app does not recognize, the app logs a warning and uses the config setting for that key.
+The app saves what you pick in the tray menu, **Post-process with GLM** and **Overlay**, in `tray_choices.json` in the project root. A saved choice wins over its setting in `config.toml`, on this start and the next. A setting you never changed from the tray keeps following `config.toml`. Delete `tray_choices.json` to go back to the config settings for both. If the file holds a value the app does not recognize, the app logs a warning and uses the config setting for that key.
 
 ## Start at sign-in
 
