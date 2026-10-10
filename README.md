@@ -44,7 +44,7 @@ Stop the running instance:
 uv run parakeet-dictate --quit
 ```
 
-A tray icon shows the state. A hollow ring means the model is loading, which takes about 7 seconds. Gray means ready, red means recording, amber means transcribing, and violet means GLM is post-processing the transcript. A red ring means startup failed. Hover over the icon to see the state and the active provider (`CUDA` or `CPU int8`). Right-click it for **Post-process with GLM**, **Overlay**, **Open log**, and **Quit**. Only one instance runs at a time. A second launch logs a line and exits.
+A tray icon shows the state. A hollow ring means the model is loading, which takes about 7 seconds. Gray means ready, red means recording, amber means transcribing, and violet means GLM is post-processing the transcript. A red ring means startup failed. Hover over the icon to see the state and the active provider (`CUDA` or `CPU int8`). Right-click it for **Post-process with GLM**, **Overlay**, **Open log**, and **Quit**. Only one instance runs at a time. If you start the app while it runs, the running app shows a notification that it is already running, and the new launch exits.
 
 ## Dictate
 
@@ -128,19 +128,29 @@ If `config.toml` has an unknown setting or an invalid value, the app writes the 
 
 The app saves what you pick in the tray menu, **Post-process with GLM** and **Overlay**, in `tray_choices.json` in the project root. A saved choice wins over its setting in `config.toml`, on this start and the next. A setting you never changed from the tray keeps following `config.toml`. Delete `tray_choices.json` to go back to the config settings for both. If the file holds a value the app does not recognize, the app logs a warning and uses the config setting for that key.
 
-## Start at sign-in
+## Install
 
-Create a shortcut in your Startup folder that runs the app with `pythonw`:
-
-```powershell
-.\scripts\install_startup.ps1
-```
-
-Remove the shortcut:
+Double-click `Install.cmd` in the project folder, or run:
 
 ```powershell
-.\scripts\install_startup.ps1 -Remove
+.\scripts\install.ps1
 ```
+
+The app keeps running from the project folder and its `.venv`. The installer does the following:
+
+- It runs `uv sync` if `.venv` is missing, and downloads the model, about 3 GB, if `models\parakeet-tdt-0.6b-v3` is missing.
+- It puts a **Parakeet Dictate** shortcut on the Desktop and in the Start menu. When you start the app from either one, it shows a notification once the model is loaded.
+- It adds Parakeet Dictate to **Settings** > **Apps** > **Installed apps**.
+
+Running the installer again gives the same result. The icon is `assets\parakeet.ico`, drawn by `scripts/make_icon.py`.
+
+To also start the app at sign-in, with no notification, add `-Startup`. A later run without `-Startup` keeps the sign-in shortcut.
+
+```powershell
+.\scripts\install.ps1 -Startup
+```
+
+To uninstall, click **Uninstall** next to Parakeet Dictate in **Installed apps**, or run `.\scripts\install.ps1 -Uninstall`. It stops the app, removes the shortcuts that start this folder's app, and removes the Installed apps entry. It leaves the project folder, the model, and `tray_choices.json` in place. Delete the folder to remove them too.
 
 ## Troubleshoot
 
@@ -150,7 +160,7 @@ These scripts check each part on its own:
 
 | Command | Checks |
 | --- | --- |
-| `uv run pytest` | The dictation state machine, config parsing, the saved tray choices, the tray's Overlay menu, the GLM client against a fake server, the overlay's timing and placement, and one pixel drawn through the overlay window and read back from the desktop. |
+| `uv run pytest` | The dictation state machine, config parsing, the saved tray choices, the tray's Overlay menu, the already-running and ready notifications, the GLM client against a fake server, the overlay's timing and placement, and one pixel drawn through the overlay window and read back from the desktop. |
 | `uv run python scripts/mic_check.py` | Records 2 s from the default microphone and prints the device, rate, frame count, level, the overlay meter's readings, and what the audio callback costs. |
 | `uv run python scripts/overlay_check.py` | Shows the overlay through 10 scripted dictations and a 300-frame recording. Prints GDI and USER handle counts, frame rate, render time, and the overlay thread's CPU while hidden. Add `--style bars` to measure the other style. It then switches one recording fluid, bars, off, fluid as the tray does, and checks that only the chosen style draws, that off hides the window, and that handle counts stay flat. Add `--screenshots <folder>` to save a desktop grab per style. It sends no keys. |
 | `uv run python scripts/bench_hook_latency.py` | Times key events from send to the keyboard hook with the overlay hidden and animating. Add `--style bars` to try another overlay style. It sends F24 to a small window; stop the app first and do not use the keyboard or mouse while it runs. |
