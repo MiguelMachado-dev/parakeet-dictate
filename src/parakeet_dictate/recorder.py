@@ -21,6 +21,14 @@ class RecorderError(RuntimeError):
     pass
 
 
+def default_input_rate() -> int:
+    """The rate the next recording will most likely use, so warm-up can exercise its resampler."""
+    try:
+        return int(sd.query_devices(kind="input")["default_samplerate"])
+    except sd.PortAudioError:
+        return 16_000
+
+
 class Recorder:
     """Records the default input device at its native rate, mono float32."""
 

@@ -55,6 +55,9 @@ def _parse(name: str, value: object) -> object:
                 raise ConfigError(f"hotkey must be a pynput Key name such as 'ctrl_r', 'f13', 'pause'; got {value!r}")
             if value == "esc":
                 raise ConfigError("hotkey cannot be 'esc'; Esc cancels a recording")
+            # The keyboard hook reports sided modifiers only, so a generic one would never match.
+            if value in ("ctrl", "shift", "alt"):
+                raise ConfigError(f"hotkey must name a side, like '{value}_r'; got {value!r}")
             return value
         case "tap_threshold_ms":
             if type(value) is not int or not 0 < value <= 2000:
