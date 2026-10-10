@@ -24,7 +24,7 @@ from PIL import Image, ImageDraw
 from pynput import keyboard
 
 from . import inject
-from .config import LOG_PATH, POSTPROCESS_CHOICE_PATH, Config, ConfigError, load_api_key, load_config
+from .config import LOG_PATH, OVERLAY_CHOICES, TRAY_CHOICES_PATH, Config, ConfigError, load_api_key, load_config
 from .overlay import Overlay
 from .polish import GlmClient, PolishError
 from .recorder import Audio, Recorder, default_input_rate
@@ -305,38 +305,60 @@ class Cues:
             f.writeframes(struct.pack(f"<{len(samples)}h", *samples))
 
 
-class PostprocessChoice:
-    """The tray's "Post-process with GLM" check, saved so that it survives a restart."""
+class TrayChoices:
+    """What the tray menu sets, saved in one file so it survives a restart. A choice made in the tray
+    wins over its config.toml setting; a key never chosen, or saved invalid, falls back to the config."""
 
-    def __init__(self, default: bool, path: Path = POSTPROCESS_CHOICE_PATH) -> None:
+    VALID: dict[str, Callable[[object], bool]] = {
+        "postprocess": lambda value: type(value) is bool,
+        "overlay": lambda value: isinstance(value, str) and value in OVERLAY_CHOICES,
+    }
+
+    def __init__(self, config: Config, path: Path) -> None:
         self._path = path
-        self.on = default
+        self._config = {"postprocess": config.postprocess.enabled, "overlay": config.overlay}
+        # Only keys chosen in the tray, so a choice of one never pins the other's config value.
+        self._chosen: dict[str, object] = {}
         try:
-            saved = json.loads(path.read_text(encoding="utf-8"))["enabled"]
+            saved = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return
-        except (OSError, ValueError, LookupError, TypeError):
+        except (OSError, ValueError):
             saved = None
-        if type(saved) is bool:
-            self.on = saved
-        else:
-            log.warning("ignoring %s: expected {\"enabled\": true|false}", path.name)
+        if not isinstance(saved, dict):
+            log.warning("ignoring %s: expected a JSON object", path.name)
+            return
+        for key, value in saved.items():
+            if key in self.VALID and self.VALID[key](value):
+                self._chosen[key] = value
+            else:
+                log.warning("ignoring %r in %s: %r", key, path.name, value)
 
-    def toggle(self) -> None:
-        self.on = not self.on
-        log.info("post-processing turned %s from the tray", "on" if self.on else "off")
+    @property
+    def postprocess(self) -> bool:
+        return self._chosen.get("postprocess", self._config["postprocess"])
+
+    @property
+    def overlay(self) -> str:
+        """A style name or "off"."""
+        return self._chosen.get("overlay", self._config["overlay"])
+
+    def choose(self, key: str, value: object) -> None:
+        self._chosen[key] = value
+        temporary = self._path.with_name(self._path.name + ".tmp")
         try:
-            self._path.write_text(json.dumps({"enabled": self.on}), encoding="utf-8")
+            temporary.write_text(json.dumps(self._chosen), encoding="utf-8")
+            os.replace(temporary, self._path)
         except OSError:
-            log.exception("could not save the post-processing choice")
+            log.exception("could not save the tray choices")
 
 
 class Tray:
     COLORS = {"idle": "#9e9e9e", "recording": "#e53935", "transcribing": "#ffb300", "polishing": "#8e24aa"}
 
-    def __init__(self, on_quit: Callable[[], None], postprocess: PostprocessChoice, glm_available: bool) -> None:
+    def __init__(self, on_quit: Callable[[], None], choices: TrayChoices, glm_available: bool) -> None:
         self.provider = ""
-        self._postprocess = postprocess
+        self._choices = choices
         self.icon = pystray.Icon(
             "parakeet-dictate",
             self._ring("#9e9e9e"),
@@ -345,7 +367,7 @@ class Tray:
                 pystray.MenuItem(
                     "Post-process with GLM" if glm_available else "Post-process with GLM (no ZAI_API_KEY)",
                     lambda: self._toggle_postprocess(),
-                    checked=lambda item: glm_available and postprocess.on,
+                    checked=lambda item: glm_available and choices.postprocess,
                     enabled=glm_available,
                 ),
                 pystray.Menu.SEPARATOR,
@@ -355,7 +377,9 @@ class Tray:
         )
 
     def _toggle_postprocess(self) -> None:
-        self._postprocess.toggle()
+        on = not self._choices.postprocess
+        log.info("post-processing turned %s from the tray", "on" if on else "off")
+        self._choices.choose("postprocess", on)
         self.icon.update_menu()
 
     def show_state(self, state: State) -> None:
@@ -458,8 +482,8 @@ def main() -> int:
     quit_event = kernel32.CreateEventW(None, True, False, QUIT_EVENT_NAME)
     api_key = load_api_key()
     glm = GlmClient(config.postprocess, api_key) if api_key else None
-    postprocess = PostprocessChoice(config.postprocess.enabled)
-    tray = Tray(on_quit=lambda: tray.icon.stop(), postprocess=postprocess, glm_available=glm is not None)
+    choices = TrayChoices(config, TRAY_CHOICES_PATH)
+    tray = Tray(on_quit=lambda: tray.icon.stop(), choices=choices, glm_available=glm is not None)
     cues = Cues(config.sounds)
     stopping = threading.Event()
     running: list[Dictation] = []
@@ -489,7 +513,7 @@ def main() -> int:
                 cues=cues,
                 on_transition=on_transition,
                 glm=glm,
-                polish_enabled=lambda: postprocess.on,
+                polish_enabled=lambda: choices.postprocess,
             )
             dictation.start()
             running.append(dictation)
@@ -498,7 +522,7 @@ def main() -> int:
                 postprocessing = "unavailable, no ZAI_API_KEY in the environment or .env"
             else:
                 settings = f"{config.postprocess.model}, reasoning effort {config.postprocess.reasoning_effort}"
-                postprocessing = f"{'on' if postprocess.on else 'off'} ({settings})"
+                postprocessing = f"{'on' if choices.postprocess else 'off'} ({settings})"
             log.info(
                 "ready: provider %s, hotkey %s, post-processing %s, overlay %s",
                 transcriber.provider, config.hotkey, postprocessing, config.overlay if overlay is not None else "off",

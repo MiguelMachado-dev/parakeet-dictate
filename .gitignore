@@ -5,5 +5,6 @@ __pycache__/
 config.toml
 dictate.log*
 .env
-postprocess.json
+tray_choices.json
+tray_choices.json.tmp
 previews/

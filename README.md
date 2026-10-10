@@ -95,7 +95,7 @@ With post-processing on:
 - **Text still waits for the hotkey.** If you are holding the hotkey when the text is ready, the app pastes it when you release the key. This applies to polished text, to the raw fallback, and to Esc.
 - **Your transcripts go to Z.ai.** The app sends the transcript text over HTTPS. Audio never leaves your machine. To keep everything local, turn post-processing off. The log records character counts and timings, never the text.
 
-To turn it off or on, right-click the tray icon and click **Post-process with GLM**. The app saves your choice in `postprocess.json` in the project root and uses it on the next start, ahead of the `enabled` setting in `config.toml`. Delete `postprocess.json` to go back to the config setting. Without an API key, the item is unavailable and reads **Post-process with GLM (no ZAI_API_KEY)**.
+To turn it off or on, right-click the tray icon and click **Post-process with GLM**. The app saves your choice in `tray_choices.json` in the project root and uses it on the next start, ahead of the `enabled` setting in `config.toml`. Without an API key, the item is unavailable and reads **Post-process with GLM (no ZAI_API_KEY)**.
 
 ## Configure
 
@@ -123,6 +123,10 @@ Post-processing settings go in a `[postprocess]` table at the end of `config.tom
 | `extra_instructions` | `""` | Text added to the end of the system prompt. List names and terms that GLM must spell your way, for example `"Names: Miguel, João. Terms: Parakeet, Z.ai."` |
 
 If `config.toml` has an unknown setting or an invalid value, the app writes the reason to `dictate.log` and exits.
+
+## Tray choices
+
+The app saves what you pick in the tray menu, such as **Post-process with GLM**, in `tray_choices.json` in the project root. A saved choice wins over its setting in `config.toml`, on this start and the next. A setting you never changed from the tray keeps following `config.toml`. Delete `tray_choices.json` to go back to the config settings. If the file holds a value the app does not recognize, the app logs a warning and uses the config setting for that key.
 
 ## Start at sign-in
 

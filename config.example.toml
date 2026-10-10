@@ -32,7 +32,7 @@
 # [postprocess]
 
 # Initial state of the tray's "Post-process with GLM" item. Once you toggle the item,
-# the tray choice is saved in postprocess.json and wins over this setting.
+# the tray choice is saved in tray_choices.json and wins over this setting.
 # enabled = true
 
 # model = "glm-5.3"

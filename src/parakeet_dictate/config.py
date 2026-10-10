@@ -14,7 +14,8 @@ if not (ROOT / "pyproject.toml").is_file():
 CONFIG_PATH = ROOT / "config.toml"
 LOG_PATH = ROOT / "dictate.log"
 ENV_PATH = ROOT / ".env"
-POSTPROCESS_CHOICE_PATH = ROOT / "postprocess.json"
+TRAY_CHOICES_PATH = ROOT / "tray_choices.json"
+OVERLAY_CHOICES = (*STYLES, "off")
 
 
 class ConfigError(ValueError):
@@ -38,7 +39,7 @@ class Config:
     provider: Literal["cuda", "cpu"] = "cuda"
     sounds: bool = True
     append_space: bool = True
-    # A style name from styles.STYLES, or "off" to never create the window.
+    # One of OVERLAY_CHOICES: a style name from styles.STYLES, or "off".
     overlay: str = DEFAULT_STYLE
     model_dir: Path = ROOT / "models" / "parakeet-tdt-0.6b-v3"
     postprocess: PostprocessConfig = PostprocessConfig()
@@ -96,9 +97,8 @@ def _parse(name: str, value: object) -> object:
                 raise ConfigError(f"provider must be 'cuda' or 'cpu'; got {value!r}")
             return value
         case "overlay":
-            choices = (*STYLES, "off")
-            if value not in choices:
-                raise ConfigError(f"overlay must be one of {', '.join(map(repr, choices))}; got {value!r}")
+            if value not in OVERLAY_CHOICES:
+                raise ConfigError(f"overlay must be one of {', '.join(map(repr, OVERLAY_CHOICES))}; got {value!r}")
             return value
         case "sounds" | "append_space":
             if type(value) is not bool:
