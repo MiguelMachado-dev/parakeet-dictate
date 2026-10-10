@@ -4,6 +4,8 @@ import numpy as np
 import numpy.typing as npt
 import sounddevice as sd
 
+from .meter import LevelMeter
+
 
 @dataclass(frozen=True)
 class Audio:
@@ -31,6 +33,9 @@ class Recorder:
         self._stream: sd.InputStream | None = None
         self._chunks: list[npt.NDArray[np.float32]] = []
         self.device_name = ""
+        # Replaced on each start, so the overlay always reads levels of the current recording
+        # at the rate its stream actually runs.
+        self.meter = LevelMeter(16_000)
 
     def start(self) -> None:
         self.discard()
@@ -42,6 +47,7 @@ class Recorder:
         stream = sd.InputStream(
             samplerate=device["default_samplerate"], channels=1, dtype="float32", callback=self._on_audio
         )
+        self.meter = LevelMeter(int(stream.samplerate))
         stream.start()
         self._stream, self.device_name = stream, device["name"]
 
@@ -66,4 +72,6 @@ class Recorder:
         self._chunks = []
 
     def _on_audio(self, indata: npt.NDArray[np.float32], frames: int, time: object, status: object) -> None:
-        self._chunks.append(indata[:, 0].copy())
+        samples = indata[:, 0].copy()
+        self._chunks.append(samples)
+        self.meter.feed(samples)

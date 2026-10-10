@@ -4,6 +4,7 @@ import json
 import logging
 import subprocess
 import sys
+import threading
 import time
 import wave
 from collections.abc import Callable, Iterator
@@ -18,6 +19,7 @@ from check_model import word_error_rate, words
 from parakeet_dictate import inject
 from parakeet_dictate.app import Cues, Dictation, acquire_single_instance
 from parakeet_dictate.config import Config, load_api_key
+from parakeet_dictate.meter import LevelMeter
 from parakeet_dictate.polish import GlmClient
 from parakeet_dictate.recorder import Audio
 from parakeet_dictate.reducer import AwaitingRelease, Polishing, State
@@ -32,6 +34,7 @@ HOTKEY = inject.VK_RCONTROL
 UNREACHABLE_ENDPOINT = "https://127.0.0.1:9/api/coding/paas/v4/chat/completions"
 TINY_TIMEOUT_S = 0.3
 GLM_WAIT_S = 15.0
+FEED_CHUNK_S = 0.02
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 user32.GetForegroundWindow.restype = wintypes.HWND
@@ -43,21 +46,49 @@ class Abort(Exception):
 
 
 class FixtureRecorder:
+    """Plays the fixture into the level meter in real time, as the microphone would, and hands
+    the whole fixture to the transcriber on stop."""
+
     device_name = "fixture"
 
     def __init__(self) -> None:
         self.audio: Audio | None = None
         self.discards = 0
+        self.meter = LevelMeter(MIC_RATE)
+        self._halt = threading.Event()
+        self._feeder: threading.Thread | None = None
 
     def start(self) -> None:
-        pass
+        assert self.audio is not None
+        self._stop_feeding()
+        self.meter = LevelMeter(self.audio.rate)
+        self._halt = threading.Event()
+        self._feeder = threading.Thread(target=self._feed, args=(self.audio, self.meter, self._halt), daemon=True)
+        self._feeder.start()
 
     def stop(self) -> Audio:
         assert self.audio is not None
+        self._stop_feeding()
         return self.audio
 
     def discard(self) -> None:
+        self._stop_feeding()
         self.discards += 1
+
+    def _stop_feeding(self) -> None:
+        self._halt.set()
+        if self._feeder is not None:
+            self._feeder.join()
+            self._feeder = None
+
+    @staticmethod
+    def _feed(audio: Audio, meter: LevelMeter, halt: threading.Event) -> None:
+        chunk = round(audio.rate * FEED_CHUNK_S)
+        started = time.perf_counter()
+        for i, offset in enumerate(range(0, len(audio.samples), chunk), 1):
+            if halt.wait(max(0.0, started + i * FEED_CHUNK_S - time.perf_counter())):
+                return
+            meter.feed(audio.samples[offset : offset + chunk])
 
 
 class ErrorLog(logging.Handler):
