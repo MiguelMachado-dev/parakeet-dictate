@@ -1,3 +1,4 @@
+import argparse
 import ctypes
 import dataclasses
 import json
@@ -14,15 +15,18 @@ from pathlib import Path
 
 import numpy as np
 import pynput.keyboard
+from PIL import ImageGrab
 
 from check_model import word_error_rate, words
 from parakeet_dictate import inject
 from parakeet_dictate.app import Cues, Dictation, acquire_single_instance
 from parakeet_dictate.config import Config, load_api_key
 from parakeet_dictate.meter import LevelMeter
+from parakeet_dictate.overlay import Overlay
+from parakeet_dictate.overlay_frame import Phase
 from parakeet_dictate.polish import GlmClient
 from parakeet_dictate.recorder import Audio
-from parakeet_dictate.reducer import AwaitingRelease, Polishing, State
+from parakeet_dictate.reducer import AwaitingRelease, Idle, Polishing, Recording, State, Transition
 from parakeet_dictate.transcriber import load_transcriber, resample
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -31,14 +35,34 @@ MIC_RATE = 44_100
 SENTINEL = "parakeet-e2e clipboard sentinel ✓"
 MAX_WER = 0.15
 HOTKEY = inject.VK_RCONTROL
+VK_C = 0x43
 UNREACHABLE_ENDPOINT = "https://127.0.0.1:9/api/coding/paas/v4/chat/completions"
 TINY_TIMEOUT_S = 0.3
 GLM_WAIT_S = 15.0
 FEED_CHUNK_S = 0.02
+# How soon the second key of a Right Ctrl shortcut arrives in the shortcut flow.
+SHORTCUT_GAP_S = 0.15
+WATCH_INTERVAL_S = 0.005
+GWL_EXSTYLE = -20
+# WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST
+OVERLAY_EXSTYLE = 0x00080000 | 0x00000020 | 0x08000000 | 0x00000080 | 0x00000008
+BOTTOM_MARGIN = 48
+DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
+shcore = ctypes.WinDLL("shcore")
 user32.GetForegroundWindow.restype = wintypes.HWND
 user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+user32.IsWindowVisible.argtypes = [wintypes.HWND]
+user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+user32.WindowFromPoint.argtypes = [wintypes.POINT]
+user32.WindowFromPoint.restype = wintypes.HWND
+user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+user32.SetThreadDpiAwarenessContext.restype = ctypes.c_void_p
+user32.EnumDisplayMonitors.argtypes = [wintypes.HDC, ctypes.POINTER(wintypes.RECT), ctypes.c_void_p, wintypes.LPARAM]
+user32.GetMonitorInfoW.argtypes = [wintypes.HMONITOR, ctypes.c_void_p]
+shcore.GetDpiForMonitor.argtypes = [wintypes.HMONITOR, ctypes.c_int, ctypes.POINTER(wintypes.UINT), ctypes.POINTER(wintypes.UINT)]
 
 
 class Abort(Exception):
@@ -193,6 +217,88 @@ class Keyboard:
         self.held.clear()
 
 
+class OverlayWatch:
+    """Samples the overlay on its own thread, in physical pixels: who has focus, whether the overlay
+    is visible, what is under its center, and what it draws."""
+
+    def __init__(self, overlay: Overlay) -> None:
+        self.overlay = overlay
+        self.samples = 0
+        self.focused = 0
+        self.hit_tests = 0
+        self.hits = 0
+        self.rect = wintypes.RECT()
+        self.shown: list[list[float]] = []
+        self.phases: list[tuple[float, Phase | None]] = []
+        self.recording_level_max = 0.0
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, name="overlay-watch", daemon=True)
+        self._thread.start()
+
+    def visible_between(self, start: float, end: float) -> bool:
+        return any(shown_at <= end and (hidden_at is None or hidden_at >= start) for shown_at, hidden_at in self.shown)
+
+    def hidden_after(self, t: float) -> float | None:
+        return next((hidden_at for shown_at, hidden_at in self.shown if shown_at <= t and hidden_at and hidden_at >= t), None)
+
+    def phases_between(self, start: float, end: float) -> set[Phase]:
+        return {phase for t, phase in self.phases if start <= t <= end and phase is not None}
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._thread.join()
+
+    def _run(self) -> None:
+        user32.SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+        hwnd = self.overlay.hwnd
+        rect = wintypes.RECT()
+        while not self._stop.wait(WATCH_INTERVAL_S):
+            now = time.perf_counter()
+            self.samples += 1
+            if user32.GetForegroundWindow() == hwnd:
+                self.focused += 1
+            visible = bool(user32.IsWindowVisible(hwnd))
+            if visible and (not self.shown or self.shown[-1][1] is not None):
+                self.shown.append([now, None])
+            elif not visible and self.shown and self.shown[-1][1] is None:
+                self.shown[-1][1] = now
+            if visible:
+                user32.GetWindowRect(hwnd, ctypes.byref(rect))
+                self.rect = wintypes.RECT(rect.left, rect.top, rect.right, rect.bottom)
+                self.hit_tests += 1
+                if user32.WindowFromPoint(wintypes.POINT((rect.left + rect.right) // 2, (rect.top + rect.bottom) // 2)) == hwnd:
+                    self.hits += 1
+            frame = self.overlay.last_frame
+            phase = frame.phase if frame is not None else None
+            if not self.phases or self.phases[-1][1] is not phase:
+                self.phases.append((now, phase))
+            if frame is not None and phase is Phase.RECORDING:
+                self.recording_level_max = max(self.recording_level_max, float(frame.levels.max()))
+
+
+def work_areas() -> list[tuple[wintypes.RECT, int]]:
+    """Each monitor's work area and DPI, in physical pixels."""
+    from parakeet_dictate.overlay import MONITORINFO
+
+    previous = user32.SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+    found: list[tuple[wintypes.RECT, int]] = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HMONITOR, wintypes.HDC, ctypes.POINTER(wintypes.RECT), wintypes.LPARAM)
+    def visit(monitor: int, dc: int, rect: object, data: int) -> bool:
+        info = MONITORINFO(cbSize=ctypes.sizeof(MONITORINFO))
+        user32.GetMonitorInfoW(monitor, ctypes.byref(info))
+        dpi, _ = wintypes.UINT(), wintypes.UINT()
+        shcore.GetDpiForMonitor(monitor, 0, ctypes.byref(dpi), ctypes.byref(_))
+        found.append((info.rcWork, dpi.value))
+        return True
+
+    try:
+        user32.EnumDisplayMonitors(None, None, ctypes.cast(visit, ctypes.c_void_p), 0)
+    finally:
+        user32.SetThreadDpiAwarenessContext(previous)
+    return found
+
+
 def load_fixture(name: str) -> tuple[Audio, str]:
     with wave.open(str(FIXTURES / f"{name}.wav")) as f:
         samples = np.frombuffer(f.readframes(f.getnframes()), "<i2").astype(np.float32) / 32768
@@ -210,6 +316,9 @@ def wait_until[T](probe: Callable[[], T | None], what: str, timeout_s: float = G
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--screenshots", type=Path, help="save desktop grabs of the overlay while it records here")
+    args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.INFO, format="  %(threadName)s %(message)s", stream=sys.stdout)
     logging.getLogger("httpx2").setLevel(logging.WARNING)
@@ -242,6 +351,8 @@ def main() -> int:
     pastes: list[float] = []
     latencies: dict[str, float] = {}
     original_clipboard = inject.get_text()
+    overlay = Overlay(lambda: recorder.meter.snapshot())
+    watch = OverlayWatch(overlay)
     target = Target()
     keyboard = Keyboard(target)
 
@@ -249,6 +360,10 @@ def main() -> int:
         keyboard.require_foreground()
         pastes.append(time.perf_counter())
         inject.paste(text)
+
+    def on_transition(transition: Transition) -> None:
+        states.append((time.perf_counter(), transition.state))
+        overlay.notify(transition)
 
     @contextmanager
     def dictating(
@@ -260,7 +375,7 @@ def main() -> int:
             transcriber=transcriber,
             paste=guarded_paste,
             cues=Cues(enabled=False),
-            on_transition=lambda transition: states.append((time.perf_counter(), transition.state)),
+            on_transition=on_transition,
             glm=glm_client,
             polish_enabled=lambda: enabled,
         )
@@ -297,12 +412,39 @@ def main() -> int:
         inject.set_text(SENTINEL)
         recorder.audio = fixtures[name][0]
 
-    def hold(name: str) -> float:
+    def hold(name: str, while_recording: Callable[[], None] = lambda: None) -> float:
         prepare(name)
         keyboard.press(HOTKEY)
         keyboard.auto_repeat(HOTKEY, times=4, interval_s=0.2)
+        while_recording()
         time.sleep(0.2)
         return keyboard.release(HOTKEY)
+
+    def screenshot(name: str) -> None:
+        if args.screenshots is None:
+            return
+        r = watch.rect
+        box = (r.left - 200, r.top - 80, r.right + 200, r.bottom + 120)
+        path = args.screenshots / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}.png"
+        args.screenshots.mkdir(parents=True, exist_ok=True)
+        ImageGrab.grab(box, include_layered_windows=True, all_screens=True).save(path)
+        print(f"  saved {path} (overlay at {r.left},{r.top} to {r.right},{r.bottom})")
+
+    def observe_recording(name: str) -> wintypes.RECT:
+        frame = overlay.last_frame
+        showing = frame is not None and frame.phase is Phase.RECORDING and bool(user32.IsWindowVisible(overlay.hwnd))
+        check(showing, "overlay visible mid-recording, drawing RECORDING")
+        screenshot(name)
+        return watch.rect
+
+    def check_bottom_center(rect: wintypes.RECT, work: wintypes.RECT, dpi: int, where: str) -> None:
+        center_off = (rect.left + rect.right) / 2 - (work.left + work.right) / 2
+        margin = work.bottom - rect.bottom
+        check(
+            abs(center_off) <= 1 and abs(margin - BOTTOM_MARGIN * dpi / 96) <= 1 and work.left <= rect.left and rect.right <= work.right,
+            f"overlay at the bottom center of the {where} work area ({rect.left},{rect.top} to {rect.right},{rect.bottom}; "
+            f"work area {work.left},{work.top} to {work.right},{work.bottom}; {margin} px above its bottom)",
+        )
 
     def landed(name: str, flow: str, released: float) -> str:
         text, seen_at = wait_until(lambda: target.text(), "text in the target window")
@@ -317,16 +459,23 @@ def main() -> int:
         check(inject.get_text() == SENTINEL, "clipboard restored to the sentinel")
         return text
 
+    def work_area_at(x: int, y: int) -> tuple[wintypes.RECT, int] | None:
+        return next(((w, dpi) for w, dpi in work_areas() if w.left <= x < w.right and w.top <= y < w.bottom), None)
+
     witness_hook.start()
     witness_hook.wait()
     try:
-        target.ask("focus")
+        home = target.ask("focus")
         time.sleep(0.3)
         keyboard.require_foreground()
+        style = user32.GetWindowLongW(overlay.hwnd, GWL_EXSTYLE)
+        check(style & OVERLAY_EXSTYLE == OVERLAY_EXSTYLE, f"overlay is layered, transparent, no-activate, tool window, topmost (0x{style & 0xFFFFFFFF:08x})")
 
         with dictating(None):
             for name in ("en", "pt"):
-                landed(name, "hold", hold(name))
+                rects: list[wintypes.RECT] = []
+                landed(name, "hold", hold(name, lambda: rects.append(observe_recording(f"hold-{name}"))))
+                check_bottom_center(rects[-1], *work_area_at(*home["center"]), "target's")
 
             for name in ("en", "pt"):
                 prepare(name)
@@ -358,6 +507,52 @@ def main() -> int:
             check(recorder.discards > discards, "recording discarded")
             check(inject.get_text() == SENTINEL, "clipboard untouched")
             check(len(escapes_leaked) == leaked, "Esc swallowed by the app, so Ctrl+Esc never reached Windows")
+
+            print(f"[shortcut: Right Ctrl, then C {SHORTCUT_GAP_S * 1000:.0f} ms later]")
+            prepare("en")
+            pressed = keyboard.press(HOTKEY)
+            time.sleep(SHORTCUT_GAP_S)
+            keyboard.press(VK_C)
+            keyboard.release(VK_C)
+            keyboard.release(HOTKEY)
+            time.sleep(1.0)
+            discarded = any(isinstance(s, Idle) and s.key_down and t > pressed for t, s in states)
+            check(discarded, "the shortcut discarded the recording")
+            check(not watch.visible_between(pressed, time.perf_counter()), "overlay never became visible")
+            check(target.text() == "" and inject.get_text() == SENTINEL, "nothing pasted, clipboard untouched")
+
+            print("[shortcut after the overlay appeared]")
+            prepare("en")
+            pressed = keyboard.press(HOTKEY)
+            wait_until(lambda: user32.IsWindowVisible(overlay.hwnd), "the overlay to appear", 2.0)
+            time.sleep(0.2)
+            second_key = keyboard.press(VK_C)
+            keyboard.release(VK_C)
+            keyboard.release(HOTKEY)
+            time.sleep(1.0)
+            hidden_at = watch.hidden_after(second_key)
+            check(hidden_at is not None and hidden_at - second_key < 0.05,
+                  f"overlay hid {(hidden_at - second_key) * 1000 if hidden_at else float('nan'):.0f} ms after the second key")
+            check(not watch.visible_between(hidden_at or second_key, time.perf_counter()), "and stayed hidden")
+            beats = watch.phases_between(second_key, time.perf_counter()) & {Phase.DONE, Phase.CANCELLED, Phase.FAILED}
+            check(not beats, f"no beat played ({sorted(p.value for p in beats)})")
+
+            left = next(((w, dpi) for w, dpi in work_areas() if w.right <= 0), None)
+            if left is None:
+                print("[hold on a monitor left of the primary] skipped: no such monitor")
+            else:
+                work, dpi = left
+                target.ask(f"move {work.left + 400} {work.top + 200}")
+                moved = target.ask("focus")
+                time.sleep(0.3)
+                check(work_area_at(*moved["center"])[0].left == work.left, f"target moved to the left monitor (center {moved['center']})")
+                rects = []
+                landed("en", "hold on the left monitor", hold("en", lambda: rects.append(observe_recording("hold-left-monitor"))))
+                check_bottom_center(rects[-1], work, dpi, "left monitor's")
+                target.ask(f"move {home['origin'][0]} {home['origin'][1]}")
+                target.ask("focus")
+                time.sleep(0.3)
+                keyboard.require_foreground()
 
         with dictating(glm, enabled=False):
             requests = len(glm.finished)
@@ -425,11 +620,21 @@ def main() -> int:
     finally:
         keyboard.release_held_keys_unguarded()
         witness_hook.stop()
+        watch.stop()
+        overlay.close()
         target.close()
         inject.set_text(original_clipboard)
         for client in (glm.glm, unreachable, too_slow):
             client.close()
 
+    print(f"[overlay over the whole run: {watch.samples} samples every {WATCH_INTERVAL_S * 1000:.0f} ms, {overlay.frames} frames drawn]")
+    check(watch.focused == 0, f"overlay was never the foreground window ({watch.focused} of {watch.samples} samples)")
+    check(watch.hit_tests > 0 and watch.hits == 0,
+          f"WindowFromPoint at the overlay's center never returned the overlay ({watch.hits} of {watch.hit_tests} samples while visible)")
+    drawn = {phase for _, phase in watch.phases if phase is not None}
+    expected = {Phase.RECORDING, Phase.TRANSCRIBING, Phase.POLISHING, Phase.DONE, Phase.CANCELLED}
+    check(expected <= drawn, f"overlay drew {sorted(p.value for p in drawn)}")
+    check(watch.recording_level_max > 0.5, f"overlay drew live fixture levels while recording (max {watch.recording_level_max:.2f})")
     check(not app_errors.records, f"the app logged no errors ({len(app_errors.records)} logged)")
     print("key-up to Ctrl+V sent:")
     for flow, ms in latencies.items():

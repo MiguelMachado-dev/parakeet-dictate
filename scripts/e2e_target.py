@@ -55,18 +55,29 @@ def reply(message: dict) -> None:
     print(json.dumps(message), flush=True)
 
 
+def placement() -> dict:
+    root.update()
+    return {
+        "origin": [root.winfo_x(), root.winfo_y()],
+        "center": [root.winfo_rootx() + root.winfo_width() // 2, root.winfo_rooty() + root.winfo_height() // 2],
+    }
+
+
 def poll() -> None:
     while not commands.empty():
-        match commands.get():
-            case "focus":
+        match commands.get().split():
+            case ["focus"]:
                 bring_to_front()
-                reply({"ok": True})
-            case "text":
+                reply({"ok": True} | placement())
+            case ["move", x, y]:
+                root.geometry(f"+{int(x)}+{int(y)}")
+                reply({"ok": True} | placement())
+            case ["text"]:
                 reply({"text": box.get("1.0", "end-1c")})
-            case "clear":
+            case ["clear"]:
                 box.delete("1.0", "end")
                 reply({"ok": True})
-            case "quit":
+            case ["quit"]:
                 root.destroy()
                 return
     root.after(5, poll)
