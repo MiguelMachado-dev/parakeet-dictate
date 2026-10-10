@@ -64,7 +64,7 @@ While you dictate, a small window above the taskbar shows your microphone level 
 - **It waits 250 ms before it appears.** A shortcut such as Right Ctrl+C never flashes it. The start tone plays at once. If you press another key after the overlay appears, it disappears at once.
 - **It costs nothing while hidden.** Its thread waits for the next dictation and uses no CPU.
 
-To turn it off, set `overlay = false` in `config.toml`.
+It comes in two styles. `fluid` draws translucent ribbons in a night-blue capsule, and `bars` draws mirrored bars in a smoked-glass capsule. Pick one with `overlay = "fluid"` or `overlay = "bars"` in `config.toml`, or turn it off with `overlay = "off"`. To preview a style without dictating, run `uv run python scripts/preview_overlay.py --style bars --out previews/bars` and open `previews/bars/video.mp4`.
 
 ## Post-process with GLM
 
@@ -108,7 +108,7 @@ Copy `config.example.toml` to `config.toml` and uncomment the settings to change
 | `provider` | `"cuda"` | `"cuda"` runs fp32 on the GPU. `"cpu"` runs int8 on the CPU. |
 | `sounds` | `true` | Short tones for start, stop, cancel, and error. |
 | `append_space` | `true` | Adds a space after each dictation. |
-| `overlay` | `true` | Shows a live microphone visualizer above the taskbar while you dictate. With `false`, the app never creates the window. |
+| `overlay` | `"fluid"` | The live microphone visualizer above the taskbar while you dictate. `"fluid"` or `"bars"` picks the style. With `"off"`, the app never creates the window. |
 | `model_dir` | `"models/parakeet-tdt-0.6b-v3"` | Relative to the project root, or absolute. |
 
 Post-processing settings go in a `[postprocess]` table at the end of `config.toml`:

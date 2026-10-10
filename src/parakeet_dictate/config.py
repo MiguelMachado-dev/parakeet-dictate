@@ -6,6 +6,8 @@ from typing import Literal
 
 from pynput.keyboard import Key
 
+from .styles import DEFAULT_STYLE, STYLES
+
 ROOT = Path(__file__).resolve().parents[2]
 if not (ROOT / "pyproject.toml").is_file():
     raise ImportError(f"parakeet_dictate must run from its checkout, installed editable by `uv sync`; got {ROOT}")
@@ -36,7 +38,8 @@ class Config:
     provider: Literal["cuda", "cpu"] = "cuda"
     sounds: bool = True
     append_space: bool = True
-    overlay: bool = True
+    # A style name from styles.STYLES, or "off" to never create the window.
+    overlay: str = DEFAULT_STYLE
     model_dir: Path = ROOT / "models" / "parakeet-tdt-0.6b-v3"
     postprocess: PostprocessConfig = PostprocessConfig()
 
@@ -92,7 +95,12 @@ def _parse(name: str, value: object) -> object:
             if value not in ("cuda", "cpu"):
                 raise ConfigError(f"provider must be 'cuda' or 'cpu'; got {value!r}")
             return value
-        case "sounds" | "append_space" | "overlay":
+        case "overlay":
+            choices = (*STYLES, "off")
+            if value not in choices:
+                raise ConfigError(f"overlay must be one of {', '.join(map(repr, choices))}; got {value!r}")
+            return value
+        case "sounds" | "append_space":
             if type(value) is not bool:
                 raise ConfigError(f"{name} must be true or false; got {value!r}")
             return value

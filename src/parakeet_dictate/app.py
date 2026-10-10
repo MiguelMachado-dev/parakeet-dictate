@@ -55,7 +55,7 @@ from .reducer import (
     Transition,
     step,
 )
-from .styles import DEFAULT_STYLE, STYLES
+from .styles import STYLES
 from .transcriber import Transcriber, load_transcriber
 
 log = logging.getLogger("parakeet_dictate")
@@ -388,9 +388,9 @@ class Tray:
         return image
 
 
-def open_overlay(recorder: Recorder) -> Overlay | None:
+def open_overlay(recorder: Recorder, style: str) -> Overlay | None:
     try:
-        return Overlay(STYLES[DEFAULT_STYLE], lambda: recorder.meter.snapshot())
+        return Overlay(STYLES[style], lambda: recorder.meter.snapshot())
     except OSError:
         log.exception("could not create the overlay window; dictating without it")
         return None
@@ -473,7 +473,7 @@ def main() -> int:
                 return
             tray.provider = transcriber.label
             recorder = Recorder()
-            overlay = open_overlay(recorder) if config.overlay else None
+            overlay = None if config.overlay == "off" else open_overlay(recorder, config.overlay)
             if overlay is not None:
                 overlays.append(overlay)
 
@@ -501,7 +501,7 @@ def main() -> int:
                 postprocessing = f"{'on' if postprocess.on else 'off'} ({settings})"
             log.info(
                 "ready: provider %s, hotkey %s, post-processing %s, overlay %s",
-                transcriber.provider, config.hotkey, postprocessing, "on" if overlay is not None else "off",
+                transcriber.provider, config.hotkey, postprocessing, config.overlay if overlay is not None else "off",
             )
         except Exception as e:
             log.exception("startup failed")
