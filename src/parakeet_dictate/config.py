@@ -1,3 +1,4 @@
+import os
 import tomllib
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -10,10 +11,21 @@ if not (ROOT / "pyproject.toml").is_file():
     raise ImportError(f"parakeet_dictate must run from its checkout, installed editable by `uv sync`; got {ROOT}")
 CONFIG_PATH = ROOT / "config.toml"
 LOG_PATH = ROOT / "dictate.log"
+ENV_PATH = ROOT / ".env"
 
 
 class ConfigError(ValueError):
     pass
+
+
+@dataclass(frozen=True)
+class PostprocessConfig:
+    enabled: bool = True
+    model: str = "glm-5.3"
+    endpoint: str = "https://api.z.ai/api/coding/paas/v4/chat/completions"
+    reasoning_effort: Literal["low", "high", "max"] = "low"
+    timeout_s: float = 8.0
+    extra_instructions: str = ""
 
 
 @dataclass(frozen=True)
@@ -24,6 +36,7 @@ class Config:
     sounds: bool = True
     append_space: bool = True
     model_dir: Path = ROOT / "models" / "parakeet-tdt-0.6b-v3"
+    postprocess: PostprocessConfig = PostprocessConfig()
 
     @property
     def hotkey_vk(self) -> int:
@@ -44,6 +57,18 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
 
     values = {name: _parse(name, value) for name, value in raw.items()}
     return Config(**values)
+
+
+def load_api_key(env_path: Path = ENV_PATH) -> str | None:
+    if key := os.environ.get("ZAI_API_KEY", "").strip():
+        return key
+    if not env_path.exists():
+        return None
+    for line in env_path.read_text(encoding="utf-8-sig").splitlines():
+        name, _, value = line.partition("=")
+        if name.strip() == "ZAI_API_KEY":
+            return value.strip().strip("\"'") or None
+    return None
 
 
 def _parse(name: str, value: object) -> object:
@@ -73,4 +98,38 @@ def _parse(name: str, value: object) -> object:
             if not isinstance(value, str):
                 raise ConfigError(f"model_dir must be a path string; got {value!r}")
             return ROOT / value
+        case "postprocess":
+            if not isinstance(value, dict):
+                raise ConfigError(f"postprocess must be a table, [postprocess]; got {value!r}")
+            unknown = value.keys() - {f.name for f in fields(PostprocessConfig)}
+            if unknown:
+                raise ConfigError(f"unknown postprocess setting(s) {sorted(unknown)}")
+            return PostprocessConfig(**{key: _parse_postprocess(key, item) for key, item in value.items()})
+    raise AssertionError(name)
+
+
+def _parse_postprocess(name: str, value: object) -> object:
+    match name:
+        case "enabled":
+            if type(value) is not bool:
+                raise ConfigError(f"postprocess.enabled must be true or false; got {value!r}")
+            return value
+        case "model" | "endpoint":
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigError(f"postprocess.{name} must be a non-empty string; got {value!r}")
+            if name == "endpoint" and not value.startswith(("https://", "http://")):
+                raise ConfigError(f"postprocess.endpoint must be an http(s) URL; got {value!r}")
+            return value
+        case "reasoning_effort":
+            if value not in ("low", "high", "max"):
+                raise ConfigError(f"postprocess.reasoning_effort must be 'low', 'high', or 'max'; got {value!r}")
+            return value
+        case "timeout_s":
+            if type(value) not in (int, float) or not 0 < value <= 60:
+                raise ConfigError(f"postprocess.timeout_s must be a number of seconds in (0, 60]; got {value!r}")
+            return float(value)
+        case "extra_instructions":
+            if not isinstance(value, str):
+                raise ConfigError(f"postprocess.extra_instructions must be a string; got {value!r}")
+            return value
     raise AssertionError(name)

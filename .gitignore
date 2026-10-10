@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 config.toml
 dictate.log*
+.env
+postprocess.json
