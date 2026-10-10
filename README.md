@@ -56,6 +56,16 @@ A tray icon shows the state. A hollow ring means the model is loading, which tak
 
 The microphone opens when you press the hotkey and closes when the recording stops. A Bluetooth headset stays in its high-quality mode between dictations, and the Windows microphone indicator is lit only while you record.
 
+## Overlay
+
+While you dictate, a small window above the taskbar shows your microphone level live, then whether the app is transcribing or post-processing. It appears on the monitor of the window you are dictating into, 48 px above the bottom of the work area, scaled to that monitor's DPI. When the text is pasted, cancelled, or fails, it shows that for about half a second and fades out.
+
+- **It never takes focus.** Clicks go through it to the window below, and it never becomes the active window, so the paste always lands where you were typing.
+- **It waits 250 ms before it appears.** A shortcut such as Right Ctrl+C never flashes it. The start tone plays at once. If you press another key after the overlay appears, it disappears at once.
+- **It costs nothing while hidden.** Its thread waits for the next dictation and uses no CPU.
+
+To turn it off, set `overlay = false` in `config.toml`.
+
 ## Post-process with GLM
 
 The app can send each transcript to GLM-5.3 on [Z.ai](https://z.ai) before it pastes. GLM removes fillers such as um, uh, tipo, and né. It removes false starts and repeated words, keeps only the correction when you correct yourself ("quinta, não, sexta"), and fixes punctuation and capitalization. It keeps your language and your wording. It does not answer questions or follow requests that you dictate.
@@ -136,11 +146,13 @@ These scripts check each part on its own:
 
 | Command | Checks |
 | --- | --- |
-| `uv run pytest` | The dictation state machine, config parsing, and the GLM client against a fake server. |
-| `uv run python scripts/mic_check.py` | Records 2 s from the default microphone and prints the device, rate, frame count, and level. |
+| `uv run pytest` | The dictation state machine, config parsing, the GLM client against a fake server, the overlay's timing and placement, and one pixel drawn through the overlay window and read back from the desktop. |
+| `uv run python scripts/mic_check.py` | Records 2 s from the default microphone and prints the device, rate, frame count, level, the overlay meter's readings, and what the audio callback costs. |
+| `uv run python scripts/overlay_check.py` | Shows the overlay through 10 scripted dictations and a 300-frame recording. Prints GDI and USER handle counts, frame rate, render time, and the overlay thread's CPU while hidden. It sends no keys. |
+| `uv run python scripts/bench_hook_latency.py` | Times key events from send to the keyboard hook with the overlay hidden and animating. Add `--renderer path\to\render.py:render` to try another renderer. It sends F24 to a small window; stop the app first and do not use the keyboard or mouse while it runs. |
 | `uv run python scripts/check_model.py --provider cuda --quantization none` | Model load, provider, accuracy, and latency on the test clips. |
 | `uv run python scripts/check_glm.py` | Sends five sample dictations to GLM through the app's client and checks each reply. Add `--text "..."` to try your own. |
-| `uv run python scripts/e2e_check.py` | The full pipeline with fixture audio in place of the microphone, with and without GLM, including the fallbacks and Esc. It opens a small window, sends the hotkey, and checks what gets pasted. It needs `ZAI_API_KEY`. Stop the app first. Do not use the keyboard or mouse while it runs. |
+| `uv run python scripts/e2e_check.py` | The full pipeline with fixture audio in place of the microphone, with and without GLM, including the fallbacks, Esc, and shortcuts. It opens a small window, sends the hotkey, and checks what gets pasted. It also checks that the overlay never takes focus or clicks, shows on the right monitor, and never appears for a shortcut. Add `--screenshots <folder>` to save desktop grabs of the overlay while it records. It needs `ZAI_API_KEY`. Stop the app first. Do not use the keyboard or mouse while it runs. |
 | `uv run python scripts/bench_latency.py` | Transcription latency on audio lengths the model has not seen since warm-up. |
 | `uv run python scripts/bench_preconnect.py` | Key-up to paste for polished dictations after 35 s idle, with and without pre-connecting to Z.ai. It takes about 7 minutes and installs no keyboard hook. |
 
@@ -152,4 +164,5 @@ These scripts check each part on its own:
 - **CUDA fallback happens only at startup.** If CUDA fails while the app runs, for example after a driver reset, each dictation plays the error tone until you restart the app.
 - **The first moments after the press are not recorded.** Opening the microphone takes about 60 ms.
 - **Hands-free has no time limit.** A forgotten hands-free recording keeps the microphone open until the next press. Recordings of several minutes are untested.
+- **A failed paste shows as done on the overlay.** If the clipboard stays locked and the paste fails, the error tone plays, but the overlay has already started its done beat.
 - **Device names are truncated.** The Windows MME audio API cuts names to 31 characters, so `dictate.log` can show `Voice Chat Mic (BEACN Mix Creat`.
