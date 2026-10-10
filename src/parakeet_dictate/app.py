@@ -310,7 +310,7 @@ class TrayChoices:
     """What the tray menu sets, saved in one file so it survives a restart. A choice made in the tray
     wins over its config.toml setting; a key never chosen, or saved invalid, falls back to the config."""
 
-    VALID: dict[str, Callable[[object], bool]] = {
+    _VALID: dict[str, Callable[[object], bool]] = {
         "postprocess": lambda value: type(value) is bool,
         "overlay": lambda value: isinstance(value, str) and value in OVERLAY_CHOICES,
     }
@@ -330,7 +330,7 @@ class TrayChoices:
             log.warning("ignoring %s: expected a JSON object", path.name)
             return
         for key, value in saved.items():
-            if key in self.VALID and self.VALID[key](value):
+            if key in self._VALID and self._VALID[key](value):
                 self._chosen[key] = value
             else:
                 log.warning("ignoring %r in %s: %r", key, path.name, value)
