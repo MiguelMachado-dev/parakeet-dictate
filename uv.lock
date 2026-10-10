@@ -504,6 +504,7 @@ name = "parakeet-dictate"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx2" },
     { name = "huggingface-hub" },
     { name = "numpy" },
     { name = "onnx-asr" },
@@ -521,6 +522,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx2", specifier = ">=2.13.1" },
     { name = "huggingface-hub", specifier = ">=2.2.0" },
     { name = "numpy", specifier = ">=2.5.3" },
     { name = "onnx-asr", specifier = ">=0.12.0" },
