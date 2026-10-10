@@ -98,6 +98,7 @@ Copy `config.example.toml` to `config.toml` and uncomment the settings to change
 | `provider` | `"cuda"` | `"cuda"` runs fp32 on the GPU. `"cpu"` runs int8 on the CPU. |
 | `sounds` | `true` | Short tones for start, stop, cancel, and error. |
 | `append_space` | `true` | Adds a space after each dictation. |
+| `overlay` | `true` | Shows a live microphone visualizer above the taskbar while you dictate. With `false`, the app never creates the window. |
 | `model_dir` | `"models/parakeet-tdt-0.6b-v3"` | Relative to the project root, or absolute. |
 
 Post-processing settings go in a `[postprocess]` table at the end of `config.toml`:

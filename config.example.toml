@@ -18,6 +18,10 @@
 # Add a space after each dictation so consecutive ones do not run together.
 # append_space = true
 
+# Show a live microphone visualizer near the bottom of the screen while you dictate.
+# The window never takes focus and lets clicks through.
+# overlay = true
+
 # Model folder, relative to the project root or absolute.
 # model_dir = "models/parakeet-tdt-0.6b-v3"
 

@@ -8,7 +8,7 @@ from parakeet_dictate.config import ROOT, Config, ConfigError, PostprocessConfig
 def test_example_config_uncommented_matches_defaults(tmp_path):
     example = (ROOT / "config.example.toml").read_text(encoding="utf-8")
     settings = re.findall(r"^# (\w+ = .+|\[\w+\])$", example, flags=re.MULTILINE)
-    assert len(settings) == 13
+    assert len(settings) == 14
     path = tmp_path / "config.toml"
     path.write_text("\n".join(settings), encoding="utf-8")
     assert load_config(path) == Config()
@@ -16,9 +16,17 @@ def test_example_config_uncommented_matches_defaults(tmp_path):
 
 def test_overrides_are_applied(tmp_path):
     path = tmp_path / "config.toml"
-    path.write_text('hotkey = "f13"\nprovider = "cpu"\nsounds = false\nmodel_dir = "elsewhere"\n', encoding="utf-8")
+    path.write_text(
+        'hotkey = "f13"\nprovider = "cpu"\nsounds = false\noverlay = false\nmodel_dir = "elsewhere"\n', encoding="utf-8"
+    )
     config = load_config(path)
-    assert (config.hotkey, config.provider, config.sounds, config.model_dir) == ("f13", "cpu", False, ROOT / "elsewhere")
+    assert (config.hotkey, config.provider, config.sounds, config.overlay, config.model_dir) == (
+        "f13", "cpu", False, False, ROOT / "elsewhere"
+    )
+
+
+def test_overlay_is_on_by_default():
+    assert Config().overlay is True
 
 
 def test_postprocess_table_overrides_only_the_settings_it_names(tmp_path):
@@ -39,7 +47,7 @@ def test_postprocess_table_overrides_only_the_settings_it_names(tmp_path):
 @pytest.mark.parametrize(
     "line",
     ['hotke = "ctrl_r"', 'hotkey = "ctrl"', 'hotkey = "esc"', 'hotkey = "nope"', "tap_threshold_ms = true",
-     'provider = "gpu"', 'sounds = "yes"', 'postprocess = "on"',
+     'provider = "gpu"', 'sounds = "yes"', "overlay = 1", 'postprocess = "on"',
      '[postprocess]\nenable = true', '[postprocess]\nenabled = "yes"', '[postprocess]\nreasoning_effort = "medium"',
      "[postprocess]\ntimeout_s = 0", "[postprocess]\ntimeout_s = true", "[postprocess]\ntimeout_s = 600",
      '[postprocess]\nmodel = ""', '[postprocess]\nendpoint = "api.z.ai/v4"', "[postprocess]\nextra_instructions = 3"],

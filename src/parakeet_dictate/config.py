@@ -36,6 +36,7 @@ class Config:
     provider: Literal["cuda", "cpu"] = "cuda"
     sounds: bool = True
     append_space: bool = True
+    overlay: bool = True
     model_dir: Path = ROOT / "models" / "parakeet-tdt-0.6b-v3"
     postprocess: PostprocessConfig = PostprocessConfig()
 
@@ -91,7 +92,7 @@ def _parse(name: str, value: object) -> object:
             if value not in ("cuda", "cpu"):
                 raise ConfigError(f"provider must be 'cuda' or 'cpu'; got {value!r}")
             return value
-        case "sounds" | "append_space":
+        case "sounds" | "append_space" | "overlay":
             if type(value) is not bool:
                 raise ConfigError(f"{name} must be true or false; got {value!r}")
             return value
