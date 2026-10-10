@@ -3,6 +3,8 @@ import sys
 import threading
 import time
 import uuid
+from collections.abc import Callable
+from types import SimpleNamespace
 
 import pystray
 import pytest
@@ -119,19 +121,33 @@ def test_the_overlay_menu_has_a_radio_item_per_style_and_off_that_switches_and_s
     assert [item.text for item in tray.icon.menu.items if item.text] == ["Post-process with GLM (no ZAI_API_KEY)", "Overlay", "- - - -", "Open log", "Quit"]
 
 
-def test_main_wires_the_tray_menu_to_the_overlay_and_the_dictation(tmp_path, monkeypatch, caplog):
-    """Runs main() with a fake tray loop, transcriber and Dictation: no app mutex, no keyboard hook."""
+def wait_until(condition: Callable[[], object], what: str) -> None:
+    deadline = time.perf_counter() + 5
+    while not condition():
+        assert time.perf_counter() < deadline, what
+        time.sleep(0.01)
+
+
+@pytest.fixture
+def fake_main(tmp_path, monkeypatch, caplog) -> SimpleNamespace:
+    """Runs main() with a fake tray loop, transcriber and Dictation, under mutex and event names of its
+    own: no app mutex, no keyboard hook, nothing reaches a running app. `run` takes the command-line
+    arguments and what to do inside the tray loop once the model is ready."""
     tag = uuid.uuid4().hex
-    monkeypatch.setattr(sys, "argv", ["parakeet-dictate"])
     monkeypatch.setattr(app, "setup_logging", lambda: None)
-    monkeypatch.setattr(app, "MUTEX_NAME", f"Local\\parakeet-dictate-test-{tag}")
-    monkeypatch.setattr(app, "QUIT_EVENT_NAME", f"Local\\parakeet-dictate-test-quit-{tag}")
+    for name in ("MUTEX_NAME", "QUIT_EVENT_NAME", "LAUNCH_EVENT_NAME"):
+        monkeypatch.setattr(app, name, f"{getattr(app, name)}-test-{tag}")
     monkeypatch.setattr(app, "TRAY_CHOICES_PATH", tmp_path / "tray_choices.json")
-    monkeypatch.setattr(app, "load_config", lambda: Config(overlay="off", sounds=False))
     monkeypatch.setattr(app, "load_api_key", lambda: None)
     monkeypatch.setattr(app, "default_input_rate", lambda: 16_000)
-    windows = Windows()
-    monkeypatch.setattr(app, "Overlay", lambda renderer, levels: windows(renderer))
+    harness = SimpleNamespace(
+        config=Config(overlay="off", sounds=False), windows=Windows(), dictations=[], notifications=[]
+    )
+    monkeypatch.setattr(app, "load_config", lambda: harness.config)
+    monkeypatch.setattr(app, "Overlay", lambda renderer, levels: harness.windows(renderer))
+    monkeypatch.setattr(
+        pystray.Icon, "notify", lambda icon, message, title=None: harness.notifications.append((message, title))
+    )
 
     class Transcriber:
         label = provider = "fake"
@@ -140,11 +156,10 @@ def test_main_wires_the_tray_menu_to_the_overlay_and_the_dictation(tmp_path, mon
             pass
 
     monkeypatch.setattr(app, "load_transcriber", lambda model_dir, provider: Transcriber())
-    dictations: list[dict] = []
 
     class FakeDictation:
         def __init__(self, config, **parts) -> None:
-            dictations.append(parts)
+            harness.dictations.append(parts)
 
         def start(self) -> None:
             pass
@@ -153,30 +168,66 @@ def test_main_wires_the_tray_menu_to_the_overlay_and_the_dictation(tmp_path, mon
             pass
 
     monkeypatch.setattr(app, "Dictation", FakeDictation)
+
+    def run(*args: str, during: Callable[[pystray.Icon], None] = lambda icon: None) -> int:
+        def loop(icon: pystray.Icon) -> None:
+            ready = lambda: any(r.getMessage().startswith("ready:") for r in caplog.records)
+            wait_until(ready, "the loader never logged ready")
+            during(icon)
+
+        monkeypatch.setattr(sys, "argv", ["parakeet-dictate", *args])
+        monkeypatch.setattr(pystray.Icon, "run", loop)
+        with caplog.at_level("INFO", logger="parakeet_dictate"):
+            return app.main()
+
+    harness.run = run
+    return harness
+
+
+def test_main_wires_the_tray_menu_to_the_overlay_and_the_dictation(fake_main, tmp_path, caplog):
     seen: dict[str, object] = {}
 
-    def run(icon: pystray.Icon) -> None:
-        deadline = time.perf_counter() + 5
-        while not any(r.getMessage().startswith("ready:") for r in caplog.records):
-            assert time.perf_counter() < deadline, "the loader never logged ready"
-            time.sleep(0.01)
-        on_transition = dictations[0]["on_transition"]
+    def during(icon: pystray.Icon) -> None:
+        on_transition = fake_main.dictations[0]["on_transition"]
         on_transition(RECORDING)
-        seen["opened while off"] = len(windows.opened)
+        seen["opened while off"] = len(fake_main.windows.opened)
         items = overlay_items(icon)
         seen["labels"] = [item.text for item in items]
         next(item for item in items if item.text == "Bars")(icon)
         seen["checked"] = [item.checked for item in items]
         on_transition(RECORDING)
 
-    monkeypatch.setattr(pystray.Icon, "run", run)
-    with caplog.at_level("INFO", logger="parakeet_dictate"):
-        assert app.main() == 0
+    assert fake_main.run(during=during) == 0
     messages = [r.getMessage() for r in caplog.records]
 
     assert seen == {"opened while off": 0, "labels": ["Fluid", "Bars", "Off"], "checked": [False, True, False]}
     assert any(m.startswith("ready:") and m.endswith("overlay off") for m in messages)
     assert "overlay switched to bars from the tray" in messages
-    (window,) = windows.opened
+    (window,) = fake_main.windows.opened
     assert (window.renderer, window.notified, window.closed) == (STYLES["bars"], [RECORDING, RECORDING], True)
     assert json.loads((tmp_path / "tray_choices.json").read_text(encoding="utf-8")) == {"overlay": "bars"}
+
+
+def test_a_second_launch_exits_and_the_running_app_says_it_is_already_running(fake_main):
+    second: list[int] = []
+
+    def during(icon: pystray.Icon) -> None:
+        second.append(app.main())
+        wait_until(lambda: fake_main.notifications, "the running app never showed a notification")
+
+    assert fake_main.run(during=during) == 0
+    assert second == [0]
+    assert fake_main.notifications == [
+        ("Parakeet Dictate is already running. Hold Right Ctrl to dictate.", "Parakeet Dictate")
+    ]
+
+
+def test_notify_ready_shows_one_notification_naming_the_configured_hotkey(fake_main):
+    fake_main.config = Config(hotkey="shift_r", overlay="off", sounds=False)
+    assert fake_main.run("--notify-ready") == 0
+    assert fake_main.notifications == [("Ready. Hold Right Shift to dictate.", "Parakeet Dictate")]
+
+
+def test_a_start_without_notify_ready_shows_no_notification(fake_main):
+    assert fake_main.run() == 0
+    assert fake_main.notifications == []

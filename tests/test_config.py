@@ -25,6 +25,24 @@ def test_overrides_are_applied(tmp_path):
     )
 
 
+@pytest.mark.parametrize(
+    ("hotkey", "label"),
+    [
+        ("ctrl_r", "Right Ctrl"),
+        ("shift_r", "Right Shift"),
+        ("alt_r", "Right Alt"),
+        ("ctrl_l", "Left Ctrl"),
+        ("cmd_r", "Right Windows"),
+        ("alt_gr", "AltGr"),
+        ("f13", "F13"),
+        ("pause", "Pause"),
+        ("scroll_lock", "Scroll Lock"),
+    ],
+)
+def test_hotkey_label_names_the_key_as_people_do(hotkey, label):
+    assert Config(hotkey=hotkey).hotkey_label == label
+
+
 def test_overlay_shows_the_fluid_style_by_default():
     assert Config().overlay == "fluid"
 

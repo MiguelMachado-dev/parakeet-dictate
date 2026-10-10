@@ -16,6 +16,17 @@ LOG_PATH = ROOT / "dictate.log"
 ENV_PATH = ROOT / ".env"
 TRAY_CHOICES_PATH = ROOT / "tray_choices.json"
 OVERLAY_CHOICES = (*STYLES, "off")
+HOTKEY_LABELS = {
+    "ctrl_l": "Left Ctrl",
+    "ctrl_r": "Right Ctrl",
+    "shift_l": "Left Shift",
+    "shift_r": "Right Shift",
+    "alt_l": "Left Alt",
+    "alt_r": "Right Alt",
+    "alt_gr": "AltGr",
+    "cmd_l": "Left Windows",
+    "cmd_r": "Right Windows",
+}
 
 
 class ConfigError(ValueError):
@@ -47,6 +58,11 @@ class Config:
     @property
     def hotkey_vk(self) -> int:
         return Key[self.hotkey].value.vk
+
+    @property
+    def hotkey_label(self) -> str:
+        """The hotkey as people name it: "Right Ctrl", "F13", "Scroll Lock"."""
+        return HOTKEY_LABELS.get(self.hotkey, self.hotkey.replace("_", " ").title())
 
 
 def load_config(path: Path = CONFIG_PATH) -> Config:

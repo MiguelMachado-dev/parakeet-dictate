@@ -78,6 +78,7 @@ kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
 MUTEX_NAME = "Local\\parakeet-dictate"
 QUIT_EVENT_NAME = "Local\\parakeet-dictate-quit"
+LAUNCH_EVENT_NAME = "Local\\parakeet-dictate-launched"
 ERROR_ALREADY_EXISTS = 183
 EVENT_MODIFY_STATE = 0x0002
 INFINITE = 0xFFFFFFFF
@@ -465,6 +466,13 @@ class Tray:
         self.icon.icon = self._ring("#e53935")
         self.icon.title = f"Parakeet Dictate failed: {message}"[:120]
 
+    def notify(self, message: str) -> None:
+        # A notification that fails, say before the tray window exists, must not stop the launch watcher.
+        try:
+            self.icon.notify(message, "Parakeet Dictate")
+        except Exception:
+            log.exception("could not show the notification %r", message)
+
     @staticmethod
     def _disc(color: str) -> Image.Image:
         image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
@@ -489,8 +497,8 @@ def acquire_single_instance() -> int | None:
     return handle
 
 
-def signal_quit() -> bool:
-    handle = kernel32.OpenEventW(EVENT_MODIFY_STATE, False, QUIT_EVENT_NAME)
+def signal_event(name: str) -> bool:
+    handle = kernel32.OpenEventW(EVENT_MODIFY_STATE, False, name)
     if not handle:
         return False
     kernel32.SetEvent(handle)
@@ -518,17 +526,19 @@ def setup_logging() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(prog="parakeet-dictate", description="Push-to-talk dictation with Parakeet.")
     parser.add_argument("--quit", action="store_true", help="stop the running instance")
+    parser.add_argument("--notify-ready", action="store_true", help="show a notification once the model is loaded")
     args = parser.parse_args()
     setup_logging()
 
     if args.quit:
-        stopped = signal_quit()
+        stopped = signal_event(QUIT_EVENT_NAME)
         log.info("--quit: %s", "signalled the running instance" if stopped else "no instance running")
         return 0 if stopped else 1
 
     mutex = acquire_single_instance()
     if mutex is None:
-        log.info("another instance is already running; exiting")
+        told = signal_event(LAUNCH_EVENT_NAME)
+        log.info("another instance is already running; %s", "asked it to say so" if told else "it is still starting")
         return 0
     log.info("starting, pid %d", os.getpid())
     try:
@@ -538,6 +548,9 @@ def main() -> int:
         return 1
 
     quit_event = kernel32.CreateEventW(None, True, False, QUIT_EVENT_NAME)
+    # Auto-reset, so each later launch wakes the watcher once.
+    launch_event = kernel32.CreateEventW(None, False, False, LAUNCH_EVENT_NAME)
+    hint = f"Hold {config.hotkey_label} to dictate."
     api_key = load_api_key()
     glm = GlmClient(config.postprocess, api_key) if api_key else None
     choices = TrayChoices(config, TRAY_CHOICES_PATH)
@@ -581,6 +594,8 @@ def main() -> int:
                 "ready: provider %s, hotkey %s, post-processing %s, overlay %s",
                 transcriber.provider, config.hotkey, postprocessing, overlay.style,
             )
+            if args.notify_ready:
+                tray.notify(f"Ready. {hint}")
         except Exception as e:
             log.exception("startup failed")
             tray.show_error(str(e) or type(e).__name__)
@@ -591,9 +606,15 @@ def main() -> int:
             log.info("quit requested by another process")
             tray.icon.stop()
 
+    def wait_for_launches() -> None:
+        while kernel32.WaitForSingleObject(launch_event, INFINITE) == WAIT_OBJECT_0:
+            log.info("launched again while running")
+            tray.notify(f"Parakeet Dictate is already running. {hint}")
+
     loader = threading.Thread(target=load, name="loader")
     loader.start()
     threading.Thread(target=wait_for_quit, name="quit-watcher", daemon=True).start()
+    threading.Thread(target=wait_for_launches, name="launch-watcher", daemon=True).start()
     tray.icon.run()
 
     log.info("shutting down")
@@ -605,6 +626,7 @@ def main() -> int:
     if glm is not None:
         glm.close()
     kernel32.CloseHandle(quit_event)
+    kernel32.CloseHandle(launch_event)
     kernel32.CloseHandle(mutex)
     log.info("stopped")
     return 0
