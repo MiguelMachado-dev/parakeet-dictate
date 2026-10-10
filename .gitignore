@@ -6,3 +6,4 @@ config.toml
 dictate.log*
 .env
 postprocess.json
+previews/
