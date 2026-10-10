@@ -38,16 +38,15 @@ def _ramp(stops: list[tuple[float, tuple[int, int, int]]], t: F32) -> F32:
 
 
 # Budgerigar plumage, yellow face to green body to blue tail: fresh sound at the centre, cooling as it ages outward.
-PLUMAGE = _ramp(
-    [
-        (0.0, (250, 255, 185)),
-        (0.2, (205, 250, 110)),
-        (0.47, (70, 228, 160)),
-        (0.76, (38, 160, 205)),
-        (1.0, (62, 84, 160)),
-    ],
-    K_NORM,
-)
+# scripts/make_icon.py paints the app icon's bars with the same stops.
+PLUMAGE_STOPS = [
+    (0.0, (250, 255, 185)),
+    (0.2, (205, 250, 110)),
+    (0.47, (70, 228, 160)),
+    (0.76, (38, 160, 205)),
+    (1.0, (62, 84, 160)),
+]
+PLUMAGE = _ramp(PLUMAGE_STOPS, K_NORM)
 IDLE_C = np.array([0.5, 0.72, 0.8], np.float32)
 IRIS = [(0.0, (140, 92, 255)), (0.33, (225, 84, 255)), (0.66, (92, 140, 255)), (1.0, (140, 92, 255))]
 SCAN = np.array([0.86, 0.93, 1.0], np.float32)
