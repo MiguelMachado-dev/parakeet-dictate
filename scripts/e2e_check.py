@@ -260,7 +260,7 @@ def main() -> int:
             transcriber=transcriber,
             paste=guarded_paste,
             cues=Cues(enabled=False),
-            on_state=lambda state: states.append((time.perf_counter(), state)),
+            on_transition=lambda transition: states.append((time.perf_counter(), transition.state)),
             glm=glm_client,
             polish_enabled=lambda: enabled,
         )

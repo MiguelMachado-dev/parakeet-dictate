@@ -51,6 +51,7 @@ from .reducer import (
     StopAndTranscribe,
     Transcribing,
     TranscriptReady,
+    Transition,
     step,
 )
 from .transcriber import Transcriber, load_transcriber
@@ -91,7 +92,7 @@ class Dictation:
         transcriber: Transcriber,
         paste: Callable[[str], None] = inject.paste,
         cues: "Cues",
-        on_state: Callable[[State], None] = lambda state: None,
+        on_transition: Callable[[Transition], None] = lambda transition: None,
         glm: GlmClient | None = None,
         polish_enabled: Callable[[], bool] = lambda: True,
     ) -> None:
@@ -100,7 +101,7 @@ class Dictation:
         self._transcriber = transcriber
         self._paste = paste
         self._cues = cues
-        self._on_state = on_state
+        self._on_transition = on_transition
         self._glm = glm
         self._polish_enabled = polish_enabled
         self._events: queue.Queue[Event | None] = queue.Queue()
@@ -185,7 +186,12 @@ class Dictation:
             log.info("%s -> %s on %s", previous, self._state, event)
             if isinstance(event, PolishFailed):
                 log.warning("post-processing failed (%s); pasting the raw transcript", event.reason)
-            self._on_state(self._state)
+            if isinstance(event, OtherKeyDown) and isinstance(previous, Recording):
+                # Data for the overlay's show delay: how soon a real shortcut's second key arrives.
+                log.info("shortcut: another key %.0f ms after the hotkey", (time.perf_counter() - previous.pressed_at) * 1000)
+            # Before the effects run: a paste blocks this thread for the clipboard restore, and the
+            # observers should see the transition when it happens.
+            self._on_transition(Transition(previous, self._state, event, tuple(effects)))
         for effect in effects:
             self._execute(effect)
 
@@ -460,7 +466,7 @@ def main() -> int:
                 recorder=Recorder(),
                 transcriber=transcriber,
                 cues=cues,
-                on_state=tray.show_state,
+                on_transition=lambda transition: tray.show_state(transition.state),
                 glm=glm,
                 polish_enabled=lambda: postprocess.on,
             )

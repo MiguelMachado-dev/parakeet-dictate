@@ -133,6 +133,14 @@ class Polish:
 type Effect = StartRecording | StopAndTranscribe | DiscardRecording | Paste | PlaySound | Polish
 
 
+@dataclass(frozen=True)
+class Transition:
+    previous: State
+    state: State
+    event: Event
+    effects: tuple[Effect, ...]
+
+
 def step(
     state: State, event: Event, tap_threshold: float = 0.3, polish: bool = False
 ) -> tuple[State, list[Effect]]:
