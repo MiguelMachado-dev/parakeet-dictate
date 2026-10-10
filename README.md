@@ -107,7 +107,7 @@ Post-processing settings go in a `[postprocess]` table at the end of `config.tom
 | `enabled` | `true` | Whether post-processing starts on, until you change it from the tray. |
 | `model` | `"glm-5.3"` | The Z.ai model name. |
 | `endpoint` | `"https://api.z.ai/api/coding/paas/v4/chat/completions"` | The GLM Coding Plan chat completions URL. |
-| `reasoning_effort` | `"low"` | `"low"`, `"high"`, or `"max"`. GLM-5.3 always reasons, and higher effort is slower. |
+| `reasoning_effort` | `"low"` | `"low"`, `"high"`, or `"max"`. GLM-5.3 always reasons, and higher effort is slower. At `"max"`, five sample requests took 5.2 to 7.5 s, close to the 8 s `timeout_s`, so raise `timeout_s` too. |
 | `timeout_s` | `8.0` | Seconds to wait for GLM before pasting the raw transcript. |
 | `extra_instructions` | `""` | Text added to the end of the system prompt. List names and terms that GLM must spell your way, for example `"Names: Miguel, João. Terms: Parakeet, Z.ai."` |
 
