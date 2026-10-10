@@ -34,19 +34,24 @@ def test_premultiplied_bgra_never_exceeds_alpha():
 def test_update_layered_window_composites_the_pixel_as_straight_alpha_over_the_desktop():
     """Draw one known pixel through the real window and read the desktop back."""
     box = (0, 0, 8, 8)
-    window = _Window()
+    # An opaque window of a known colour sits under the test window, so a video or game
+    # repainting the real desktop between the two grabs cannot change the expected value.
+    backdrop_color = (40, 90, 160, 255)
+    backdrop, window = _Window(), _Window()
     try:
         style = user32.GetWindowLongW(window.hwnd, GWL_EXSTYLE)
         assert style & NEVER_FOCUSED_CLICK_THROUGH == NEVER_FOCUSED_CLICK_THROUGH
-        background = ImageGrab.grab(box, include_layered_windows=True).convert("RGB")
+        backdrop.draw(Image.new("RGBA", (8, 8), backdrop_color), Placement(0, 0, 8, 8, 1.0))
         window.draw(Image.new("RGBA", (8, 8), STRAIGHT), Placement(0, 0, 8, 8, 1.0))
         dwmapi.DwmFlush()
         time.sleep(0.05)
         shown = ImageGrab.grab(box, include_layered_windows=True).convert("RGB")
     finally:
-        window.hide()
-        window.destroy()
-    expected = Image.alpha_composite(background.convert("RGBA"), Image.new("RGBA", (8, 8), STRAIGHT)).convert("RGB")
+        for w in (window, backdrop):
+            w.hide()
+            w.destroy()
+    background = Image.new("RGBA", (8, 8), backdrop_color)
+    expected = Image.alpha_composite(background, Image.new("RGBA", (8, 8), STRAIGHT)).convert("RGB")
     difference = np.abs(np.asarray(shown, np.int16) - np.asarray(expected, np.int16))
     assert difference.max() <= 2, f"desktop {np.asarray(shown)[0, 0]} vs straight-alpha composite {np.asarray(expected)[0, 0]}"
 
