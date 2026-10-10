@@ -2,3 +2,5 @@ models/
 .venv/
 __pycache__/
 *.pyc
+config.toml
+dictate.log*

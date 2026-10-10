@@ -1,0 +1,22 @@
+# Copy this file to config.toml in the same folder and uncomment the settings to change.
+# Restart the app after editing: run `uv run parakeet-dictate --quit`, then start it again.
+
+# Hold to talk; tap quickly for hands-free. Any pynput Key name, for example
+# ctrl_r, ctrl_l, shift_r, f13 to f24, pause, scroll_lock, insert.
+# Avoid alt_r: on Portuguese and many other layouts Right Alt is AltGr.
+# hotkey = "ctrl_r"
+
+# Releasing sooner than this after the press switches to hands-free (milliseconds).
+# tap_threshold_ms = 300
+
+# "cuda" (fp32 on the GPU, falls back to CPU at startup if CUDA fails) or "cpu" (int8).
+# provider = "cuda"
+
+# Short start, stop, cancel, and error tones.
+# sounds = true
+
+# Add a space after each dictation so consecutive ones do not run together.
+# append_space = true
+
+# Model folder, relative to the project root or absolute.
+# model_dir = "models/parakeet-tdt-0.6b-v3"
