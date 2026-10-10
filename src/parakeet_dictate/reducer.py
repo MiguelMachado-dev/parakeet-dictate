@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 
 
@@ -35,6 +35,13 @@ class Transcribing:
 
 
 @dataclass(frozen=True)
+class Polishing:
+    raw: str = field(repr=False)
+    request_id: int
+    key_down: bool
+
+
+@dataclass(frozen=True)
 class AwaitingRelease:
     text: str = field(repr=False)
 
@@ -43,7 +50,7 @@ class AwaitingRelease:
         return True
 
 
-type State = Idle | Recording | Transcribing | AwaitingRelease
+type State = Idle | Recording | Transcribing | Polishing | AwaitingRelease
 
 
 @dataclass(frozen=True)
@@ -69,6 +76,7 @@ class Cancel:
 @dataclass(frozen=True)
 class TranscriptReady:
     text: str = field(repr=False)
+    request_id: int
 
 
 @dataclass(frozen=True)
@@ -76,7 +84,19 @@ class RecordingFailed:
     error: str
 
 
-type Event = HotkeyDown | HotkeyUp | OtherKeyDown | Cancel | TranscriptReady | RecordingFailed
+@dataclass(frozen=True)
+class Polished:
+    request_id: int
+    text: str = field(repr=False)
+
+
+@dataclass(frozen=True)
+class PolishFailed:
+    request_id: int
+    reason: str
+
+
+type Event = HotkeyDown | HotkeyUp | OtherKeyDown | Cancel | TranscriptReady | RecordingFailed | Polished | PolishFailed
 
 
 @dataclass(frozen=True)
@@ -104,10 +124,18 @@ class PlaySound:
     cue: Cue
 
 
-type Effect = StartRecording | StopAndTranscribe | DiscardRecording | Paste | PlaySound
+@dataclass(frozen=True)
+class Polish:
+    text: str = field(repr=False)
+    request_id: int
 
 
-def step(state: State, event: Event, tap_threshold: float = 0.3) -> tuple[State, list[Effect]]:
+type Effect = StartRecording | StopAndTranscribe | DiscardRecording | Paste | PlaySound | Polish
+
+
+def step(
+    state: State, event: Event, tap_threshold: float = 0.3, polish: bool = False
+) -> tuple[State, list[Effect]]:
     match state, event:
         case Idle(key_down=False), HotkeyDown(t):
             return Recording(Mode.HOLD, t), [StartRecording(), PlaySound(Cue.START)]
@@ -127,18 +155,27 @@ def step(state: State, event: Event, tap_threshold: float = 0.3) -> tuple[State,
         case Recording(key_down=key_down), RecordingFailed():
             return Idle(key_down), [DiscardRecording(), PlaySound(Cue.ERROR)]
 
-        case Transcribing(), HotkeyDown():
-            return Transcribing(key_down=True), []
-        case Transcribing(), HotkeyUp():
-            return Transcribing(key_down=False), []
-        case Transcribing(key_down=key_down), TranscriptReady(text):
+        case Transcribing() | Polishing(), HotkeyDown():
+            return replace(state, key_down=True), []
+        case Transcribing() | Polishing(), HotkeyUp():
+            return replace(state, key_down=False), []
+        case Transcribing(key_down=key_down), TranscriptReady(text, request_id):
             if not text:
                 return Idle(key_down), []
-            if key_down:
-                return AwaitingRelease(text), []
-            return Idle(), [Paste(text)]
+            if polish:
+                return Polishing(text, request_id, key_down), [Polish(text, request_id)]
+            return _deliver(text, key_down)
         case Transcribing(key_down=key_down), RecordingFailed():
             return Idle(key_down), [PlaySound(Cue.ERROR)]
+
+        # A result whose id is not the current request belongs to a dictation that was
+        # already pasted; it falls through and is ignored.
+        case Polishing(request_id=current, key_down=key_down), Polished(request_id, text) if request_id == current:
+            return _deliver(text, key_down)
+        case Polishing(raw, current, key_down), PolishFailed(request_id) if request_id == current:
+            return _deliver(raw, key_down)
+        case Polishing(raw, key_down=key_down), Cancel():
+            return _deliver(raw, key_down)
 
         case AwaitingRelease(text), HotkeyUp():
             return Idle(), [Paste(text)]
@@ -146,3 +183,9 @@ def step(state: State, event: Event, tap_threshold: float = 0.3) -> tuple[State,
             return Idle(key_down=True), [PlaySound(Cue.CANCEL)]
 
     return state, []
+
+
+def _deliver(text: str, key_down: bool) -> tuple[State, list[Effect]]:
+    if key_down:
+        return AwaitingRelease(text), []
+    return Idle(), [Paste(text)]

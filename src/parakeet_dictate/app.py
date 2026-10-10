@@ -1,5 +1,6 @@
 import argparse
 import ctypes
+import itertools
 import logging
 import math
 import os
@@ -96,6 +97,7 @@ class Dictation:
         self._state: State = Idle()
         self._released_at = 0.0
         self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="transcribe")
+        self._request_ids = itertools.count(1)
         self._controller = threading.Thread(target=self._run, name="controller", daemon=True)
         self._listener = keyboard.Listener(win32_event_filter=self._on_key)
         self._hook_hotkey_held = False
@@ -209,7 +211,7 @@ class Dictation:
             return
         ms = (time.perf_counter() - t0) * 1000
         log.info("transcribed %.1f s at %d Hz in %.0f ms: %d chars", audio.seconds, audio.rate, ms, len(text))
-        self.post(TranscriptReady(text))
+        self.post(TranscriptReady(text, next(self._request_ids)))
 
 
 class Cues:
