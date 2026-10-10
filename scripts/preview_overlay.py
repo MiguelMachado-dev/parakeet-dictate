@@ -1,10 +1,9 @@
-"""Render an overlay renderer through a scripted dictation timeline driven by the fixture audio.
+"""Render an overlay style through a scripted dictation timeline driven by the fixture audio.
 
 Writes video.mp4 (needs ffmpeg on PATH), contact_dark.png, contact_light.png and timing.txt.
 """
 
 import argparse
-import importlib
 import shutil
 import subprocess
 import sys
@@ -18,6 +17,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from parakeet_dictate.meter import LevelMeter
 from parakeet_dictate.overlay_frame import BEAT_S, FPS, OverlayFrame, Phase
+from parakeet_dictate.styles import STYLES
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -134,13 +134,12 @@ def contact_sheet(samples: list[tuple[str, Image.Image]], background: tuple[int,
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--renderer", default="parakeet_dictate.render:render", help="module:callable")
+    parser.add_argument("--style", choices=STYLES, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--scale", type=float, default=1.0)
     args = parser.parse_args()
 
-    module, _, attr = args.renderer.partition(":")
-    render = getattr(importlib.import_module(module), attr)
+    render = STYLES[args.style]
     args.out.mkdir(parents=True, exist_ok=True)
 
     ffmpeg = None
