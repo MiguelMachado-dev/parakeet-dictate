@@ -150,9 +150,9 @@ These scripts check each part on its own:
 
 | Command | Checks |
 | --- | --- |
-| `uv run pytest` | The dictation state machine, config parsing, the GLM client against a fake server, the overlay's timing and placement, and one pixel drawn through the overlay window and read back from the desktop. |
+| `uv run pytest` | The dictation state machine, config parsing, the saved tray choices, the tray's Overlay menu, the GLM client against a fake server, the overlay's timing and placement, and one pixel drawn through the overlay window and read back from the desktop. |
 | `uv run python scripts/mic_check.py` | Records 2 s from the default microphone and prints the device, rate, frame count, level, the overlay meter's readings, and what the audio callback costs. |
-| `uv run python scripts/overlay_check.py` | Shows the overlay through 10 scripted dictations and a 300-frame recording. Prints GDI and USER handle counts, frame rate, render time, and the overlay thread's CPU while hidden. Add `--style bars` to measure the other style. It sends no keys. |
+| `uv run python scripts/overlay_check.py` | Shows the overlay through 10 scripted dictations and a 300-frame recording. Prints GDI and USER handle counts, frame rate, render time, and the overlay thread's CPU while hidden. Add `--style bars` to measure the other style. It then switches one recording fluid, bars, off, fluid as the tray does, and checks that only the chosen style draws, that off hides the window, and that handle counts stay flat. Add `--screenshots <folder>` to save a desktop grab per style. It sends no keys. |
 | `uv run python scripts/bench_hook_latency.py` | Times key events from send to the keyboard hook with the overlay hidden and animating. Add `--style bars` to try another overlay style. It sends F24 to a small window; stop the app first and do not use the keyboard or mouse while it runs. |
 | `uv run python scripts/check_model.py --provider cuda --quantization none` | Model load, provider, accuracy, and latency on the test clips. |
 | `uv run python scripts/check_glm.py` | Sends five sample dictations to GLM through the app's client and checks each reply. Add `--text "..."` to try your own. |

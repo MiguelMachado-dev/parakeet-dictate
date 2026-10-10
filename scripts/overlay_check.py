@@ -10,13 +10,15 @@ import ctypes
 import sys
 import time
 from ctypes import wintypes
+from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageGrab
 
 from e2e_check import FixtureRecorder, load_fixture
-from parakeet_dictate.overlay import Overlay
-from parakeet_dictate.overlay_frame import OverlayFrame
+from parakeet_dictate.app import ActiveOverlay, Cues
+from parakeet_dictate.overlay import DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, Overlay
+from parakeet_dictate.overlay_frame import OverlayFrame, Renderer
 from parakeet_dictate.reducer import Event, HotkeyDown, HotkeyUp, Idle, State, TranscriptReady, Transition, step
 from parakeet_dictate.styles import DEFAULT_STYLE, STYLES
 
@@ -30,6 +32,9 @@ user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 user32.GetGuiResources.argtypes = [wintypes.HANDLE, wintypes.DWORD]
 user32.IsWindowVisible.argtypes = [wintypes.HWND]
+user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+user32.SetThreadDpiAwarenessContext.restype = ctypes.c_void_p
 kernel32.GetCurrentProcess.restype = wintypes.HANDLE
 kernel32.OpenThread.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
 kernel32.OpenThread.restype = wintypes.HANDLE
@@ -85,6 +90,7 @@ def wait_for(probe, what: str, timeout_s: float = 5.0) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--style", choices=STYLES, default=DEFAULT_STYLE)
+    parser.add_argument("--screenshots", type=Path, help="save a desktop grab of the overlay per style of the switch pass here")
     args = parser.parse_args()
     render_ms: list[float] = []
     draw = STYLES[args.style]
@@ -157,8 +163,76 @@ def main() -> int:
         print(f"handles at the end: GDI {after[0]}, USER {after[1]}")
     finally:
         overlay.close()
+    switch_pass(recorder, check, args.screenshots)
     print("PASS" if not failures else f"{len(failures)} FAILED")
     return 1 if failures else 0
+
+
+def switch_pass(recorder: FixtureRecorder, check, screenshots: Path | None) -> None:
+    """One recording switched fluid, bars, off, fluid through the tray's ActiveOverlay."""
+    drawn = dict.fromkeys(STYLES, 0)
+
+    def counting(name: str, render: Renderer) -> Renderer:
+        def draw(frame: OverlayFrame) -> Image.Image:
+            drawn[name] += 1
+            return render(frame)
+        return draw
+
+    # ActiveOverlay looks renderers up in STYLES, so count them there.
+    for name, render in list(STYLES.items()):
+        STYLES[name] = counting(name, render)
+    opened: list[Overlay] = []
+
+    def open_window(renderer: Renderer) -> Overlay:
+        opened.append(Overlay(renderer, lambda: recorder.meter.snapshot()))
+        return opened[-1]
+
+    active = ActiveOverlay("off", open_window, Cues(False))
+    driver = Driver(active, recorder)
+    previous_dpi = user32.SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+    print("switch pass: one recording, fluid -> bars -> off -> fluid")
+    try:
+        active.switch("fluid")
+        overlay = opened[0]
+        visible = lambda: bool(user32.IsWindowVisible(overlay.hwnd))
+        driver.post(HotkeyDown(time.perf_counter()))
+        wait_for(lambda: visible() and drawn["fluid"] > 5, "fluid to draw")
+        rect = wintypes.RECT()
+        user32.GetWindowRect(overlay.hwnd, ctypes.byref(rect))
+        box = (rect.left - 16, rect.top - 16, rect.right + 16, rect.bottom + 16)
+        baseline = handles()
+        steps = []
+        for n, style in enumerate(("fluid", "bars", "off", "fluid"), 1):
+            if n > 1:
+                switched_at = dict(drawn)
+                active.switch(style)
+                if style == "off":
+                    wait_for(lambda: not visible(), "off to hide the window", timeout_s=0.1)
+                else:
+                    wait_for(lambda: visible() and drawn[style] > switched_at[style], f"{style} to draw")
+            before = dict(drawn)
+            time.sleep(0.4)
+            if style == "off":
+                check(not visible() and drawn == before, "off: window hidden and no style draws")
+            else:
+                others_flat = all(drawn[name] == before[name] for name in STYLES if name != style)
+                check(visible() and drawn[style] - before[style] > 15 and others_flat,
+                      f"{style}: window visible and only {style} draws ({drawn[style] - before[style]} frames in 0.4 s)")
+            if screenshots is not None:
+                screenshots.mkdir(parents=True, exist_ok=True)
+                path = screenshots / f"{n}-{style}.png"
+                ImageGrab.grab(box, include_layered_windows=True, all_screens=True).save(path)
+                print(f"  saved {path}")
+            steps.append((style, handles()))
+        print("handles after each switch: " + ", ".join(f"{s}: GDI {g} USER {u}" for s, (g, u) in steps))
+        check(all(h == baseline for _, h in steps), f"handle counts flat across the switches (baseline GDI {baseline[0]}, USER {baseline[1]})")
+        check(len(opened) == 1, "one window across all switches")
+        driver.post(HotkeyUp(time.perf_counter()))
+        driver.post(TranscriptReady("text", 1))
+        wait_for(lambda: not visible(), "the window to hide after the beat")
+    finally:
+        user32.SetThreadDpiAwarenessContext(previous_dpi)
+        active.close()
 
 
 if __name__ == "__main__":
