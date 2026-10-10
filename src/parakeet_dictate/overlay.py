@@ -11,6 +11,7 @@ import threading
 import time
 from collections.abc import Callable
 from ctypes import wintypes
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
@@ -260,6 +261,11 @@ def _placement_for(foreground: int | None) -> Placement:
     return place((work.left, work.top, work.right, work.bottom), dpi_x.value)
 
 
+@dataclass(frozen=True)
+class _Restyle:
+    renderer: Renderer | None
+
+
 class Overlay:
     def __init__(
         self, renderer: Renderer, levels: Callable[[], tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]
@@ -267,7 +273,7 @@ class Overlay:
         """levels returns the current meter's (levels, spectrum); the overlay thread calls it each frame."""
         self._renderer = renderer
         self._levels = levels
-        self._commands: queue.SimpleQueue[tuple[float, Command, int | None]] = queue.SimpleQueue()
+        self._commands: queue.SimpleQueue[tuple[float, Command, int | None] | _Restyle] = queue.SimpleQueue()
         self._wake = kernel32.CreateEventW(None, False, False, None)
         self._closing = False
         self.hwnd: int | None = None
@@ -288,6 +294,12 @@ class Overlay:
         if command is not None:
             self._commands.put((time.perf_counter(), command, user32.GetForegroundWindow()))
             kernel32.SetEvent(self._wake)
+
+    def restyle(self, renderer: Renderer | None) -> None:
+        """Draw with renderer from the next frame. None turns the overlay off: it hides at once, drops
+        the dictation on screen, and ignores transitions until a renderer is set again."""
+        self._commands.put(_Restyle(renderer))
+        kernel32.SetEvent(self._wake)
 
     def close(self) -> None:
         self._closing = True
@@ -318,6 +330,7 @@ class Overlay:
             kernel32.CloseHandle(timer)
 
     def _loop(self, window: _Window, timer: int, handles: ctypes.Array) -> None:
+        renderer: Renderer | None = self._renderer
         scene = Scene()
         msg = wintypes.MSG()
         deadline: float | None = None
@@ -327,10 +340,16 @@ class Overlay:
                 user32.DispatchMessageW(ctypes.byref(msg))
             while True:
                 try:
-                    t, command, foreground = self._commands.get_nowait()
+                    item = self._commands.get_nowait()
                 except queue.Empty:
                     break
-                scene.apply(command, t, _placement_for(foreground))
+                if isinstance(item, _Restyle):
+                    renderer = item.renderer
+                    if renderer is None:
+                        scene = Scene()
+                elif renderer is not None:
+                    t, command, foreground = item
+                    scene.apply(command, t, _placement_for(foreground))
 
             now = time.perf_counter()
             shown = scene.frame(now, *self._levels())
@@ -340,7 +359,7 @@ class Overlay:
                 due = scene.next_show()
             else:
                 frame, placement = shown
-                window.draw(self._renderer(frame), placement)
+                window.draw(renderer(frame), placement)
                 self.frames += 1
                 self.last_frame = frame
                 deadline = now + 1 / FPS if deadline is None or deadline + 1 / FPS < now else deadline + 1 / FPS
