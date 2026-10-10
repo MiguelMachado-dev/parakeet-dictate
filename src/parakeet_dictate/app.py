@@ -25,6 +25,7 @@ from pynput import keyboard
 
 from . import inject
 from .config import LOG_PATH, POSTPROCESS_CHOICE_PATH, Config, ConfigError, load_api_key, load_config
+from .overlay import Overlay
 from .polish import GlmClient, PolishError
 from .recorder import Audio, Recorder, default_input_rate
 from .reducer import (
@@ -386,6 +387,14 @@ class Tray:
         return image
 
 
+def open_overlay(recorder: Recorder) -> Overlay | None:
+    try:
+        return Overlay(lambda: recorder.meter.snapshot())
+    except OSError:
+        log.exception("could not create the overlay window; dictating without it")
+        return None
+
+
 def acquire_single_instance() -> int | None:
     ctypes.set_last_error(0)
     handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
@@ -453,6 +462,7 @@ def main() -> int:
     cues = Cues(config.sounds)
     stopping = threading.Event()
     running: list[Dictation] = []
+    overlays: list[Overlay] = []
 
     def load() -> None:
         try:
@@ -461,12 +471,22 @@ def main() -> int:
             if stopping.is_set():
                 return
             tray.provider = transcriber.label
+            recorder = Recorder()
+            overlay = open_overlay(recorder) if config.overlay else None
+            if overlay is not None:
+                overlays.append(overlay)
+
+            def on_transition(transition: Transition) -> None:
+                tray.show_state(transition.state)
+                if overlay is not None:
+                    overlay.notify(transition)
+
             dictation = Dictation(
                 config,
-                recorder=Recorder(),
+                recorder=recorder,
                 transcriber=transcriber,
                 cues=cues,
-                on_transition=lambda transition: tray.show_state(transition.state),
+                on_transition=on_transition,
                 glm=glm,
                 polish_enabled=lambda: postprocess.on,
             )
@@ -478,7 +498,10 @@ def main() -> int:
             else:
                 settings = f"{config.postprocess.model}, reasoning effort {config.postprocess.reasoning_effort}"
                 postprocessing = f"{'on' if postprocess.on else 'off'} ({settings})"
-            log.info("ready: provider %s, hotkey %s, post-processing %s", transcriber.provider, config.hotkey, postprocessing)
+            log.info(
+                "ready: provider %s, hotkey %s, post-processing %s, overlay %s",
+                transcriber.provider, config.hotkey, postprocessing, "on" if overlay is not None else "off",
+            )
         except Exception as e:
             log.exception("startup failed")
             tray.show_error(str(e) or type(e).__name__)
@@ -499,6 +522,8 @@ def main() -> int:
     loader.join()
     for dictation in running:
         dictation.stop()
+    for overlay in overlays:
+        overlay.close()
     if glm is not None:
         glm.close()
     kernel32.CloseHandle(quit_event)
