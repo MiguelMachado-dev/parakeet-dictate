@@ -5,17 +5,20 @@ the overlay thread's CPU while hidden and while drawing, the frame rate, and ren
 no keys and installs no keyboard hook; the window shows above the taskbar while it runs.
 """
 
+import argparse
 import ctypes
 import sys
 import time
 from ctypes import wintypes
 
 import numpy as np
+from PIL import Image
 
 from e2e_check import FixtureRecorder, load_fixture
-from parakeet_dictate import render
 from parakeet_dictate.overlay import Overlay
+from parakeet_dictate.overlay_frame import OverlayFrame
 from parakeet_dictate.reducer import Event, HotkeyDown, HotkeyUp, Idle, State, TranscriptReady, Transition, step
+from parakeet_dictate.styles import DEFAULT_STYLE, STYLES
 
 CYCLES = 10
 LONG_FRAMES = 300
@@ -80,19 +83,21 @@ def wait_for(probe, what: str, timeout_s: float = 5.0) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--style", choices=STYLES, default=DEFAULT_STYLE)
+    args = parser.parse_args()
     render_ms: list[float] = []
-    draw = render.render
+    draw = STYLES[args.style]
 
-    def timed_render(frame):
+    def timed_render(frame: OverlayFrame) -> Image.Image:
         t0 = time.perf_counter()
         image = draw(frame)
         render_ms.append((time.perf_counter() - t0) * 1000)
         return image
 
-    render.render = timed_render
     recorder = FixtureRecorder()
     recorder.audio = load_fixture("en")[0]
-    overlay = Overlay(lambda: recorder.meter.snapshot())
+    overlay = Overlay(timed_render, lambda: recorder.meter.snapshot())
     clock = ThreadClock(overlay.thread_id)
     driver = Driver(overlay, recorder)
     visible = lambda: bool(user32.IsWindowVisible(overlay.hwnd))
@@ -141,7 +146,7 @@ def main() -> int:
         check(fps > 55, "about 60 fps while visible")
         check(levels_seen > 0, f"frames carry live levels (max {levels_seen:.2f})")
         ms = np.array(render_ms)
-        print(f"render ms over {len(ms)} frames: p50 {np.percentile(ms, 50):.2f}, p95 {np.percentile(ms, 95):.2f}, max {ms.max():.2f}")
+        print(f"{args.style} render ms over {len(ms)} frames: p50 {np.percentile(ms, 50):.2f}, p95 {np.percentile(ms, 95):.2f}, max {ms.max():.2f}")
 
         idle_from = clock.read()
         time.sleep(IDLE_S)

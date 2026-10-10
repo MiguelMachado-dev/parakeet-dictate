@@ -16,8 +16,7 @@ import numpy as np
 import numpy.typing as npt
 from PIL import Image
 
-from . import render
-from .overlay_frame import FPS, OverlayFrame
+from .overlay_frame import FPS, OverlayFrame, Renderer
 from .overlay_scene import Command, Placement, Scene, command_for, place
 from .reducer import Transition
 
@@ -262,8 +261,11 @@ def _placement_for(foreground: int | None) -> Placement:
 
 
 class Overlay:
-    def __init__(self, levels: Callable[[], tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]) -> None:
+    def __init__(
+        self, renderer: Renderer, levels: Callable[[], tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]
+    ) -> None:
         """levels returns the current meter's (levels, spectrum); the overlay thread calls it each frame."""
+        self._renderer = renderer
         self._levels = levels
         self._commands: queue.SimpleQueue[tuple[float, Command, int | None]] = queue.SimpleQueue()
         self._wake = kernel32.CreateEventW(None, False, False, None)
@@ -338,7 +340,7 @@ class Overlay:
                 due = scene.next_show()
             else:
                 frame, placement = shown
-                window.draw(render.render(frame), placement)
+                window.draw(self._renderer(frame), placement)
                 self.frames += 1
                 self.last_frame = frame
                 deadline = now + 1 / FPS if deadline is None or deadline + 1 / FPS < now else deadline + 1 / FPS

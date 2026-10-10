@@ -55,6 +55,7 @@ from .reducer import (
     Transition,
     step,
 )
+from .styles import DEFAULT_STYLE, STYLES
 from .transcriber import Transcriber, load_transcriber
 
 log = logging.getLogger("parakeet_dictate")
@@ -389,7 +390,7 @@ class Tray:
 
 def open_overlay(recorder: Recorder) -> Overlay | None:
     try:
-        return Overlay(lambda: recorder.meter.snapshot())
+        return Overlay(STYLES[DEFAULT_STYLE], lambda: recorder.meter.snapshot())
     except OSError:
         log.exception("could not create the overlay window; dictating without it")
         return None

@@ -1,8 +1,6 @@
 import argparse
 import ctypes
 import dataclasses
-import importlib
-import importlib.util
 import json
 import logging
 import subprocess
@@ -20,7 +18,7 @@ import pynput.keyboard
 from PIL import ImageGrab
 
 from check_model import word_error_rate, words
-from parakeet_dictate import inject, render
+from parakeet_dictate import inject
 from parakeet_dictate.app import Cues, Dictation, acquire_single_instance
 from parakeet_dictate.config import Config, load_api_key
 from parakeet_dictate.meter import LevelMeter
@@ -30,6 +28,7 @@ from parakeet_dictate.overlay_scene import SHOW_DELAY_S
 from parakeet_dictate.polish import GlmClient
 from parakeet_dictate.recorder import Audio
 from parakeet_dictate.reducer import AwaitingRelease, Idle, Polishing, Recording, State, Transition
+from parakeet_dictate.styles import DEFAULT_STYLE, STYLES
 from parakeet_dictate.transcriber import load_transcriber, resample
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -314,18 +313,6 @@ def load_fixture(name: str) -> tuple[Audio, str]:
     return Audio(resample(samples, 16_000, MIC_RATE), MIC_RATE), expected
 
 
-def load_renderer(spec: str) -> Callable:
-    """module:callable, or path\\to\\render.py:callable loaded as part of the parakeet_dictate package."""
-    target, _, attr = spec.rpartition(":")
-    if target.endswith(".py"):
-        found = importlib.util.spec_from_file_location("parakeet_dictate._trial_renderer", Path(target))
-        module = importlib.util.module_from_spec(found)
-        found.loader.exec_module(module)
-    else:
-        module = importlib.import_module(target)
-    return getattr(module, attr)
-
-
 def wait_until[T](probe: Callable[[], T | None], what: str, timeout_s: float = GLM_WAIT_S) -> tuple[T, float]:
     deadline = time.perf_counter() + timeout_s
     while time.perf_counter() < deadline:
@@ -338,10 +325,8 @@ def wait_until[T](probe: Callable[[], T | None], what: str, timeout_s: float = G
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--screenshots", type=Path, help="save desktop grabs of the overlay while it records here")
-    parser.add_argument("--renderer", help="draw the overlay with this module:callable or path\\to\\render.py:callable")
+    parser.add_argument("--style", choices=STYLES, default=DEFAULT_STYLE, help="the overlay style to draw")
     args = parser.parse_args()
-    if args.renderer:
-        render.render = load_renderer(args.renderer)
     sys.stdout.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.INFO, format="  %(threadName)s %(message)s", stream=sys.stdout)
     logging.getLogger("httpx2").setLevel(logging.WARNING)
@@ -358,7 +343,7 @@ def main() -> int:
     config = Config()
     transcriber = load_transcriber(config.model_dir, "cuda")
     transcriber.warm_up(MIC_RATE)
-    print(f"provider: {transcriber.provider}")
+    print(f"provider: {transcriber.provider}, overlay style: {args.style}")
     if transcriber.provider != "CUDAExecutionProvider":
         return 1
 
@@ -374,7 +359,7 @@ def main() -> int:
     pastes: list[float] = []
     latencies: dict[str, float] = {}
     original_clipboard = inject.get_text()
-    overlay = Overlay(lambda: recorder.meter.snapshot())
+    overlay = Overlay(STYLES[args.style], lambda: recorder.meter.snapshot())
     watch = OverlayWatch(overlay)
     target = Target()
     keyboard = Keyboard(target)

@@ -14,13 +14,13 @@ import time
 
 import numpy as np
 
-from e2e_check import HOTKEY, Abort, FixtureRecorder, Keyboard, Target, load_fixture, load_renderer, wait_until
-from parakeet_dictate import render
+from e2e_check import HOTKEY, Abort, FixtureRecorder, Keyboard, Target, load_fixture, wait_until
 from parakeet_dictate.app import WM_KEYDOWN, Cues, Dictation, acquire_single_instance
 from parakeet_dictate.config import Config
 from parakeet_dictate.overlay import Overlay
 from parakeet_dictate.overlay_frame import Phase
 from parakeet_dictate.recorder import Audio
+from parakeet_dictate.styles import DEFAULT_STYLE, STYLES
 
 VK_F24 = 0x87
 ROUNDS = ("hidden", "animating", "hidden", "animating")
@@ -44,17 +44,16 @@ class Silence:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--renderer", default="parakeet_dictate.render:render")
+    parser.add_argument("--style", choices=STYLES, default=DEFAULT_STYLE)
     parser.add_argument("--keys", type=int, default=150, help="keys per round")
     args = parser.parse_args()
-    render.render = load_renderer(args.renderer)
     if acquire_single_instance() is None:
         print("parakeet-dictate is running; stop it first (parakeet-dictate --quit)")
         return 2
 
     recorder = FixtureRecorder()
     recorder.audio = load_fixture("en")[0]
-    overlay = Overlay(lambda: recorder.meter.snapshot())
+    overlay = Overlay(STYLES[args.style], lambda: recorder.meter.snapshot())
     target = Target()
     keyboard = Keyboard(target)
     dictation = TimedDictation(
@@ -102,7 +101,7 @@ def main() -> int:
         overlay.close()
         target.close()
 
-    print(f"renderer {args.renderer}")
+    print(f"style {args.style}")
     for condition, values in results.items():
         ms = np.array(values)
         print(f"  {condition:9} n={len(ms)}  p50 {np.percentile(ms, 50):.2f} ms  p95 {np.percentile(ms, 95):.2f} ms  max {ms.max():.2f} ms")
