@@ -8,16 +8,13 @@ Stop the app first, and do not use the keyboard or mouse while it runs.
 """
 
 import argparse
-import importlib
-import importlib.util
 import random
 import sys
 import time
-from pathlib import Path
 
 import numpy as np
 
-from e2e_check import HOTKEY, Abort, FixtureRecorder, Keyboard, Target, load_fixture, wait_until
+from e2e_check import HOTKEY, Abort, FixtureRecorder, Keyboard, Target, load_fixture, load_renderer, wait_until
 from parakeet_dictate import render
 from parakeet_dictate.app import WM_KEYDOWN, Cues, Dictation, acquire_single_instance
 from parakeet_dictate.config import Config
@@ -43,18 +40,6 @@ class TimedDictation(Dictation):
 class Silence:
     def transcribe(self, audio: Audio) -> str:
         return ""
-
-
-def load_renderer(spec: str):
-    """module:callable, or path/to/render.py:callable loaded as part of the parakeet_dictate package."""
-    target, _, attr = spec.rpartition(":")
-    if target.endswith(".py"):
-        loader = importlib.util.spec_from_file_location("parakeet_dictate._bench_renderer", Path(target))
-        module = importlib.util.module_from_spec(loader)
-        loader.loader.exec_module(module)
-    else:
-        module = importlib.import_module(target)
-    return getattr(module, attr)
 
 
 def main() -> int:

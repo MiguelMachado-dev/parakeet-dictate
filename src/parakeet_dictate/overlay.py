@@ -133,7 +133,6 @@ user32.MonitorFromPoint.restype = wintypes.HMONITOR
 user32.GetMonitorInfoW.argtypes = [wintypes.HMONITOR, ctypes.POINTER(MONITORINFO)]
 user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
 user32.SetThreadDpiAwarenessContext.restype = ctypes.c_void_p
-user32.IsWindowVisible.argtypes = [wintypes.HWND]
 shcore.GetDpiForMonitor.argtypes = [wintypes.HMONITOR, ctypes.c_int, ctypes.POINTER(wintypes.UINT), ctypes.POINTER(wintypes.UINT)]
 shcore.GetDpiForMonitor.restype = ctypes.c_long
 gdi32.CreateCompatibleDC.argtypes = [wintypes.HDC]

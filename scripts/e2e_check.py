@@ -1,6 +1,8 @@
 import argparse
 import ctypes
 import dataclasses
+import importlib
+import importlib.util
 import json
 import logging
 import subprocess
@@ -18,12 +20,13 @@ import pynput.keyboard
 from PIL import ImageGrab
 
 from check_model import word_error_rate, words
-from parakeet_dictate import inject
+from parakeet_dictate import inject, render
 from parakeet_dictate.app import Cues, Dictation, acquire_single_instance
 from parakeet_dictate.config import Config, load_api_key
 from parakeet_dictate.meter import LevelMeter
 from parakeet_dictate.overlay import Overlay
 from parakeet_dictate.overlay_frame import Phase
+from parakeet_dictate.overlay_scene import SHOW_DELAY_S
 from parakeet_dictate.polish import GlmClient
 from parakeet_dictate.recorder import Audio
 from parakeet_dictate.reducer import AwaitingRelease, Idle, Polishing, Recording, State, Transition
@@ -40,8 +43,8 @@ UNREACHABLE_ENDPOINT = "https://127.0.0.1:9/api/coding/paas/v4/chat/completions"
 TINY_TIMEOUT_S = 0.3
 GLM_WAIT_S = 15.0
 FEED_CHUNK_S = 0.02
-# How soon the second key of a Right Ctrl shortcut arrives in the shortcut flow.
-SHORTCUT_GAP_S = 0.15
+# The shortcut flow's second key comes well inside the overlay's show delay.
+SHORTCUT_GAP_S = 0.6 * SHOW_DELAY_S
 WATCH_INTERVAL_S = 0.005
 GWL_EXSTYLE = -20
 # WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST
@@ -224,6 +227,7 @@ class OverlayWatch:
     def __init__(self, overlay: Overlay) -> None:
         self.overlay = overlay
         self.samples = 0
+        self.gaps: list[float] = []
         self.focused = 0
         self.hit_tests = 0
         self.hits = 0
@@ -252,8 +256,12 @@ class OverlayWatch:
         user32.SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
         hwnd = self.overlay.hwnd
         rect = wintypes.RECT()
-        while not self._stop.wait(WATCH_INTERVAL_S):
+        last = time.perf_counter()
+        while not self._stop.is_set():
+            time.sleep(WATCH_INTERVAL_S)
             now = time.perf_counter()
+            self.gaps.append(now - last)
+            last = now
             self.samples += 1
             if user32.GetForegroundWindow() == hwnd:
                 self.focused += 1
@@ -306,6 +314,18 @@ def load_fixture(name: str) -> tuple[Audio, str]:
     return Audio(resample(samples, 16_000, MIC_RATE), MIC_RATE), expected
 
 
+def load_renderer(spec: str) -> Callable:
+    """module:callable, or path\\to\\render.py:callable loaded as part of the parakeet_dictate package."""
+    target, _, attr = spec.rpartition(":")
+    if target.endswith(".py"):
+        found = importlib.util.spec_from_file_location("parakeet_dictate._trial_renderer", Path(target))
+        module = importlib.util.module_from_spec(found)
+        found.loader.exec_module(module)
+    else:
+        module = importlib.import_module(target)
+    return getattr(module, attr)
+
+
 def wait_until[T](probe: Callable[[], T | None], what: str, timeout_s: float = GLM_WAIT_S) -> tuple[T, float]:
     deadline = time.perf_counter() + timeout_s
     while time.perf_counter() < deadline:
@@ -318,7 +338,10 @@ def wait_until[T](probe: Callable[[], T | None], what: str, timeout_s: float = G
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--screenshots", type=Path, help="save desktop grabs of the overlay while it records here")
+    parser.add_argument("--renderer", help="draw the overlay with this module:callable or path\\to\\render.py:callable")
     args = parser.parse_args()
+    if args.renderer:
+        render.render = load_renderer(args.renderer)
     sys.stdout.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.INFO, format="  %(threadName)s %(message)s", stream=sys.stdout)
     logging.getLogger("httpx2").setLevel(logging.WARNING)
@@ -533,7 +556,7 @@ def main() -> int:
             hidden_at = watch.hidden_after(second_key)
             check(hidden_at is not None and hidden_at - second_key < 0.05,
                   f"overlay hid {(hidden_at - second_key) * 1000 if hidden_at else float('nan'):.0f} ms after the second key")
-            check(not watch.visible_between(hidden_at or second_key, time.perf_counter()), "and stayed hidden")
+            check(not any(shown_at > second_key for shown_at, _ in watch.shown), "and did not come back")
             beats = watch.phases_between(second_key, time.perf_counter()) & {Phase.DONE, Phase.CANCELLED, Phase.FAILED}
             check(not beats, f"no beat played ({sorted(p.value for p in beats)})")
 
@@ -627,7 +650,9 @@ def main() -> int:
         for client in (glm.glm, unreachable, too_slow):
             client.close()
 
-    print(f"[overlay over the whole run: {watch.samples} samples every {WATCH_INTERVAL_S * 1000:.0f} ms, {overlay.frames} frames drawn]")
+    gaps_ms = np.array(watch.gaps) * 1000
+    print(f"[overlay over the whole run: {watch.samples} samples in {gaps_ms.sum() / 1000:.0f} s, gap p50 {np.percentile(gaps_ms, 50):.1f} ms,"
+          f" p99 {np.percentile(gaps_ms, 99):.1f} ms, max {gaps_ms.max():.0f} ms; {overlay.frames} frames drawn]")
     check(watch.focused == 0, f"overlay was never the foreground window ({watch.focused} of {watch.samples} samples)")
     check(watch.hit_tests > 0 and watch.hits == 0,
           f"WindowFromPoint at the overlay's center never returned the overlay ({watch.hits} of {watch.hit_tests} samples while visible)")
