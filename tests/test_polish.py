@@ -105,3 +105,25 @@ def test_reply_much_longer_than_the_transcript_is_rejected():
     limit = 2 * len(RAW) + 40
     assert client(lambda request: reply("x" * limit)).polish(RAW) == "x" * limit
     assert polish_error(lambda request: reply("x" * (limit + 1))).startswith(f"reply of {limit + 1} chars")
+
+
+def test_preconnect_opens_a_connection_only_when_none_is_kept_alive():
+    seen = []
+
+    def handler(request):
+        seen.append(request.method)
+        return reply("ok") if request.method == "POST" else httpx2.Response(200)
+
+    glm = client(handler)
+    glm.preconnect()
+    glm.preconnect()
+    glm.polish(RAW)
+    glm.preconnect()
+    assert seen == ["OPTIONS", "POST"]
+
+
+def test_preconnect_failure_is_silent():
+    def handler(request):
+        raise httpx2.ConnectError("connection refused", request=request)
+
+    client(handler).preconnect()

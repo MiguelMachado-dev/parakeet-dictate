@@ -60,12 +60,24 @@ class FixtureRecorder:
         self.discards += 1
 
 
+class ErrorLog(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__(logging.ERROR)
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
 class CountingGlm:
     """GlmClient that records each finished request, so a flow can wait for a reply it expects to be ignored."""
 
     def __init__(self, glm: GlmClient) -> None:
         self.glm = glm
         self.finished: list[str] = []
+
+    def preconnect(self) -> None:
+        self.glm.preconnect()
 
     def polish(self, raw: str) -> str:
         try:
@@ -170,6 +182,8 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.INFO, format="  %(threadName)s %(message)s", stream=sys.stdout)
     logging.getLogger("httpx2").setLevel(logging.WARNING)
+    app_errors = ErrorLog()
+    logging.getLogger("parakeet_dictate").addHandler(app_errors)
     if acquire_single_instance() is None:
         print("parakeet-dictate is running; stop it first (parakeet-dictate --quit)")
         return 2
@@ -385,6 +399,7 @@ def main() -> int:
         for client in (glm.glm, unreachable, too_slow):
             client.close()
 
+    check(not app_errors.records, f"the app logged no errors ({len(app_errors.records)} logged)")
     print("key-up to Ctrl+V sent:")
     for flow, ms in latencies.items():
         print(f"  {flow:32} {ms:6.0f} ms")

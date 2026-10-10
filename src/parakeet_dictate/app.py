@@ -180,8 +180,7 @@ class Dictation:
         if isinstance(event, HotkeyUp):
             self._released_at = event.t
         previous = self._state
-        polish = self._glm is not None and self._polish_enabled()
-        self._state, effects = step(previous, event, self._config.tap_threshold_ms / 1000, polish)
+        self._state, effects = step(previous, event, self._config.tap_threshold_ms / 1000, self._polish_on())
         if self._state != previous:
             log.info("%s -> %s on %s", previous, self._state, event)
             if isinstance(event, PolishFailed):
@@ -200,6 +199,8 @@ class Dictation:
                     self.post(RecordingFailed(str(e)))
                 else:
                     log.info("recording from %r", self._recorder.device_name)
+                    if self._polish_on():
+                        self._polisher.submit(self._glm.preconnect)
             case StopAndTranscribe():
                 try:
                     audio = self._recorder.stop()
@@ -223,13 +224,17 @@ class Dictation:
                 self._cues.play(cue)
             case Polish(text, request_id):
                 self._polisher.submit(self._polish, text, request_id)
-                # httpx times each network step separately and never times the DNS lookup, so
-                # this bounds the whole wait. Once the request has finished, the reducer ignores it.
+                # httpx times each network step separately and never times the DNS lookup, so this
+                # timer bounds the whole wait. When the request finishes first, the reducer ignores
+                # the timer's PolishFailed because its id is no longer current.
                 timeout_s = self._config.postprocess.timeout_s
                 deadline = PolishFailed(request_id, f"no reply within {timeout_s:g} s")
                 timer = threading.Timer(timeout_s, self.post, [deadline])
                 timer.daemon = True
                 timer.start()
+
+    def _polish_on(self) -> bool:
+        return self._glm is not None and self._polish_enabled()
 
     def _polish(self, text: str, request_id: int) -> None:
         try:
