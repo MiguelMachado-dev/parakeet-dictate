@@ -184,6 +184,8 @@ class Dictation:
         self._state, effects = step(previous, event, self._config.tap_threshold_ms / 1000, polish)
         if self._state != previous:
             log.info("%s -> %s on %s", previous, self._state, event)
+            if isinstance(event, PolishFailed):
+                log.warning("post-processing failed (%s); pasting the raw transcript", event.reason)
             self._on_state(self._state)
         for effect in effects:
             self._execute(effect)
@@ -221,12 +223,18 @@ class Dictation:
                 self._cues.play(cue)
             case Polish(text, request_id):
                 self._polisher.submit(self._polish, text, request_id)
+                # httpx times each network step separately and never times the DNS lookup, so
+                # this bounds the whole wait. Once the request has finished, the reducer ignores it.
+                timeout_s = self._config.postprocess.timeout_s
+                deadline = PolishFailed(request_id, f"no reply within {timeout_s:g} s")
+                timer = threading.Timer(timeout_s, self.post, [deadline])
+                timer.daemon = True
+                timer.start()
 
     def _polish(self, text: str, request_id: int) -> None:
         try:
             result = Polished(request_id, self._glm.polish(text))
         except PolishError as e:
-            log.warning("post-processing failed: %s", e)
             result = PolishFailed(request_id, str(e))
         except Exception as e:
             log.exception("post-processing crashed")
