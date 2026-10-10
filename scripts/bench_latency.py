@@ -14,7 +14,8 @@ from parakeet_dictate.recorder import Audio
 from parakeet_dictate.transcriber import WARMUP_SECONDS, load_transcriber, resample
 
 FIXTURES = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
-MODES = ("EXHAUSTIVE", "HEURISTIC", "DEFAULT")
+APP_DEFAULT = "unset"
+MODES = (APP_DEFAULT, "EXHAUSTIVE", "HEURISTIC", "DEFAULT")
 UNSEEN_SECONDS = (1.3, 2.1, 2.7, 3.3, 4.6, 5.9, 6.4, 7.9, 9.2, 11.3, 14.6, 17.9)
 MIC_RATE = 44_100
 IDLE_GAP_S = 8.0
@@ -40,7 +41,8 @@ def timed_ms(transcriber, audio: Audio) -> tuple[float, str]:
 
 def measure(mode: str) -> dict:
     t0 = time.perf_counter()
-    transcriber = load_transcriber(Config().model_dir, "cuda", cudnn_conv_algo_search=mode)
+    algo_search = None if mode == APP_DEFAULT else mode
+    transcriber = load_transcriber(Config().model_dir, "cuda", cudnn_conv_algo_search=algo_search)
     load_s = time.perf_counter() - t0
     assert transcriber.provider == "CUDAExecutionProvider", transcriber.provider
 
