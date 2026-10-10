@@ -1,5 +1,3 @@
-"""Settings: built-in defaults, overridden by an optional config.toml in the project root."""
-
 import tomllib
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -7,9 +5,9 @@ from typing import Literal
 
 from pynput.keyboard import Key
 
-# The package is installed editable from src/, so this resolves to the checkout, not the cwd.
-# Startup shortcuts and pythonw do not guarantee a working directory.
 ROOT = Path(__file__).resolve().parents[2]
+if not (ROOT / "pyproject.toml").is_file():
+    raise ImportError(f"parakeet_dictate must run from its checkout, installed editable by `uv sync`; got {ROOT}")
 CONFIG_PATH = ROOT / "config.toml"
 LOG_PATH = ROOT / "dictate.log"
 

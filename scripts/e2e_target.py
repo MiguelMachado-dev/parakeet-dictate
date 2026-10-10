@@ -1,8 +1,3 @@
-"""Paste target for e2e_check.py: a Tk text window driven by line commands on stdin.
-
-Commands: focus, text, clear, quit. Each reply is one JSON line on stdout.
-"""
-
 import ctypes
 import json
 import os

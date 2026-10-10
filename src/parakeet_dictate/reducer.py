@@ -1,6 +1,4 @@
-"""The dictation lifecycle as a pure reducer: step(state, event) -> (state, effects)."""
-
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -16,10 +14,6 @@ class Cue(Enum):
     ERROR = "error"
 
 
-# Whether the hotkey is physically down is stored only where it can vary.
-# Recording(HOLD) and AwaitingRelease imply it is down; Recording(TOGGLE) implies it is up.
-
-
 @dataclass(frozen=True)
 class Idle:
     key_down: bool = False
@@ -30,6 +24,10 @@ class Recording:
     mode: Mode
     pressed_at: float
 
+    @property
+    def key_down(self) -> bool:
+        return self.mode is Mode.HOLD
+
 
 @dataclass(frozen=True)
 class Transcribing:
@@ -38,7 +36,11 @@ class Transcribing:
 
 @dataclass(frozen=True)
 class AwaitingRelease:
-    text: str
+    text: str = field(repr=False)
+
+    @property
+    def key_down(self) -> bool:
+        return True
 
 
 type State = Idle | Recording | Transcribing | AwaitingRelease
@@ -66,7 +68,7 @@ class Cancel:
 
 @dataclass(frozen=True)
 class TranscriptReady:
-    text: str
+    text: str = field(repr=False)
 
 
 @dataclass(frozen=True)
@@ -94,7 +96,7 @@ class DiscardRecording:
 
 @dataclass(frozen=True)
 class Paste:
-    text: str
+    text: str = field(repr=False)
 
 
 @dataclass(frozen=True)
@@ -118,13 +120,12 @@ def step(state: State, event: Event, tap_threshold: float = 0.3) -> tuple[State,
             return Transcribing(key_down=False), [StopAndTranscribe(), PlaySound(Cue.STOP)]
         case Recording(mode=Mode.TOGGLE), HotkeyDown():
             return Transcribing(key_down=True), [StopAndTranscribe(), PlaySound(Cue.STOP)]
-        # The hotkey was used as a modifier (Right Ctrl+C), not held to talk.
         case Recording(mode=Mode.HOLD), OtherKeyDown():
             return Idle(key_down=True), [DiscardRecording()]
-        case Recording(mode=mode), Cancel():
-            return Idle(key_down=mode is Mode.HOLD), [DiscardRecording(), PlaySound(Cue.CANCEL)]
-        case Recording(mode=mode), RecordingFailed():
-            return Idle(key_down=mode is Mode.HOLD), [DiscardRecording(), PlaySound(Cue.ERROR)]
+        case Recording(key_down=key_down), Cancel():
+            return Idle(key_down), [DiscardRecording(), PlaySound(Cue.CANCEL)]
+        case Recording(key_down=key_down), RecordingFailed():
+            return Idle(key_down), [DiscardRecording(), PlaySound(Cue.ERROR)]
 
         case Transcribing(), HotkeyDown():
             return Transcribing(key_down=True), []

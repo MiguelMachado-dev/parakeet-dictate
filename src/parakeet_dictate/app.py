@@ -1,5 +1,3 @@
-"""App shell: wires the reducer to the keyboard hook, mic, model, clipboard, sounds, and tray."""
-
 import argparse
 import ctypes
 import logging
@@ -74,15 +72,10 @@ EVENT_MODIFY_STATE = 0x0002
 INFINITE = 0xFFFFFFFF
 WAIT_OBJECT_0 = 0
 WM_KEYDOWN, WM_SYSKEYDOWN = 0x0100, 0x0104
-# While a paste waits for the hotkey release, also poll the key itself, so a key-up
-# the hook missed cannot strand the text.
 RELEASE_POLL_S = 0.05
 
 
 class Dictation:
-    """The running pipeline. The controller thread owns the reducer state; the keyboard hook
-    and the transcription worker only post events to its queue."""
-
     def __init__(
         self,
         config: Config,
@@ -105,8 +98,7 @@ class Dictation:
         self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="transcribe")
         self._controller = threading.Thread(target=self._run, name="controller", daemon=True)
         self._listener = keyboard.Listener(win32_event_filter=self._on_key)
-        # Read and written only on the hook thread, to decide synchronously whether to swallow Esc.
-        self._hotkey_held = False
+        self._hook_hotkey_held = False
 
     def start(self) -> None:
         self._controller.start()
@@ -131,11 +123,11 @@ class Dictation:
             if data.dwExtraInfo != inject.INJECTED_TAG:
                 down = msg in (WM_KEYDOWN, WM_SYSKEYDOWN)
                 if data.vkCode == self._config.hotkey_vk:
-                    self._hotkey_held = down
+                    self._hook_hotkey_held = down
                     self.post(HotkeyDown(time.perf_counter()) if down else HotkeyUp(time.perf_counter()))
                 elif data.vkCode == inject.VK_ESCAPE:
                     # With Ctrl as the hotkey, Esc while holding it is Ctrl+Esc, which opens Start.
-                    swallow = self._hotkey_held
+                    swallow = self._hook_hotkey_held
                     if down:
                         self.post(Cancel())
                 elif down:
@@ -170,7 +162,7 @@ class Dictation:
         previous = self._state
         self._state, effects = step(previous, event, self._config.tap_threshold_ms / 1000)
         if self._state != previous:
-            log.info("%s -> %s", _describe(previous), _describe(self._state))
+            log.info("%s -> %s", previous, self._state)
             self._on_state(self._state)
         for effect in effects:
             self._execute(effect)
@@ -220,19 +212,7 @@ class Dictation:
         self.post(TranscriptReady(text))
 
 
-def _describe(state: State) -> str:
-    # Never log transcript text.
-    match state:
-        case Recording(mode=mode):
-            return f"Recording({mode.name})"
-        case Idle(key_down=key_down) | Transcribing(key_down=key_down):
-            return f"{type(state).__name__}(key_down={key_down})"
-    return type(state).__name__
-
-
 class Cues:
-    """Short quiet tones, generated once and played asynchronously."""
-
     NOTES_HZ = {Cue.START: (600, 900), Cue.STOP: (900, 600), Cue.CANCEL: (450,), Cue.ERROR: (300, 300)}
     RATE = 44_100
     NOTE_S = 0.06
@@ -314,7 +294,6 @@ class Tray:
 
 
 def acquire_single_instance() -> int | None:
-    """Hold the named mutex for the life of the process, or return None if another process has it."""
     ctypes.set_last_error(0)
     handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
     if not handle:

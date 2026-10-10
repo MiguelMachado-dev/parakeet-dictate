@@ -1,10 +1,9 @@
-"""Put text into the focused window: swap it onto the clipboard, send Ctrl+V, restore the clipboard."""
-
 import ctypes
 import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from ctypes import wintypes
+from typing import NamedTuple
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -21,10 +20,13 @@ VK_RCONTROL = 0xA3
 VK_V = 0x56
 EXTENDED_VKS = {VK_RCONTROL}
 
-# Stamped into dwExtraInfo of our own synthetic keys so the hotkey listener can skip them.
 INJECTED_TAG = 0x5044
-# How long the target app gets to read the clipboard before the snapshot goes back.
-SETTLE_S = 0.2
+CLIPBOARD_RESTORE_DELAY_S = 0.2
+
+
+class Stroke(NamedTuple):
+    vk: int
+    up: bool
 
 
 class KEYBDINPUT(ctypes.Structure):
@@ -81,27 +83,20 @@ kernel32.GlobalUnlock.restype = wintypes.BOOL
 kernel32.GlobalFree.argtypes = [wintypes.HGLOBAL]
 kernel32.GlobalFree.restype = wintypes.HGLOBAL
 
-# Clipboard history (Win+V) and clipboard managers skip content carrying this format.
 CF_EXCLUDE_FROM_HISTORY = user32.RegisterClipboardFormatW("ExcludeClipboardContentFromMonitorProcessing")
 
 
 def paste(text: str) -> None:
-    """Paste text into the focused window, then put the previous clipboard text back.
-
-    Only text survives the round trip: an image or file list on the clipboard is lost.
-    """
-    previous = get_text()
+    previous_text = get_text()
     set_text(text)
-    ours = user32.GetClipboardSequenceNumber()
-    send_keys([(VK_CONTROL, False), (VK_V, False), (VK_V, True), (VK_CONTROL, True)])
-    time.sleep(SETTLE_S)
-    # If something else wrote the clipboard meanwhile (the user copied), keep that instead.
-    if user32.GetClipboardSequenceNumber() == ours:
-        set_text(previous, keep_out_of_history=True)
+    our_write = user32.GetClipboardSequenceNumber()
+    send_keys([Stroke(VK_CONTROL, up=False), Stroke(VK_V, up=False), Stroke(VK_V, up=True), Stroke(VK_CONTROL, up=True)])
+    time.sleep(CLIPBOARD_RESTORE_DELAY_S)
+    if user32.GetClipboardSequenceNumber() == our_write:
+        set_text(previous_text, keep_out_of_history=True)
 
 
-def send_keys(strokes: Sequence[tuple[int, bool]], *, tag: int = INJECTED_TAG) -> None:
-    """Send (virtual key, is_key_up) strokes as one atomic SendInput batch."""
+def send_keys(strokes: Sequence[Stroke], *, tag: int = INJECTED_TAG) -> None:
     inputs = (INPUT * len(strokes))()
     for item, (vk, up) in zip(inputs, strokes):
         item.type = INPUT_KEYBOARD
@@ -131,7 +126,6 @@ def get_text() -> str | None:
 
 
 def set_text(text: str | None, *, keep_out_of_history: bool = False) -> None:
-    """Replace the clipboard with text, or leave it empty for None."""
     with _clipboard():
         if not user32.EmptyClipboard():
             raise ctypes.WinError(ctypes.get_last_error())
@@ -144,7 +138,6 @@ def set_text(text: str | None, *, keep_out_of_history: bool = False) -> None:
 
 @contextmanager
 def _clipboard() -> Iterator[None]:
-    # Other apps hold the clipboard open for brief moments; retry instead of failing the paste.
     for _ in range(50):
         if user32.OpenClipboard(None):
             break

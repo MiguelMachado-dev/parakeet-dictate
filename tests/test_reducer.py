@@ -24,7 +24,6 @@ STOP = [StopAndTranscribe(), PlaySound(Cue.STOP)]
 
 
 def walk(state, script):
-    """Feed events one by one, asserting the exact state and effects after each."""
     for i, (event, want_state, want_effects) in enumerate(script):
         state, effects = step(state, event, tap_threshold=0.3)
         assert (state, effects) == (want_state, want_effects), f"step {i}: {event}"
@@ -61,7 +60,6 @@ def test_auto_repeat_keydown_is_ignored_while_held():
         (HotkeyDown(0.0), Recording(Mode.HOLD, 0.0), START),
         (HotkeyDown(0.5), Recording(Mode.HOLD, 0.0), []),
         (HotkeyDown(0.9), Recording(Mode.HOLD, 0.0), []),
-        # Measured from the first press, so this is a hold, not a tap.
         (HotkeyUp(1.0), Transcribing(key_down=False), STOP),
     ])
 

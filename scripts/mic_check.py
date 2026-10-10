@@ -1,5 +1,3 @@
-"""Record ~2 s from the default mic through the app's Recorder and report what came back."""
-
 import sys
 import time
 

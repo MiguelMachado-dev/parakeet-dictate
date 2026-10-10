@@ -1,10 +1,3 @@
-"""First-call latency on unseen audio lengths after the app's warm-up, per cuDNN conv algo search mode.
-
-Each mode runs in a fresh process because cuDNN caches its algorithm choices per session.
-Audio is fixture speech at 44.1 kHz, the rate MME reports for typical mics, so the
-onnx-asr resampler is on the measured path just as it is in the app.
-"""
-
 import argparse
 import json
 import statistics
@@ -23,11 +16,14 @@ from parakeet_dictate.transcriber import WARMUP_SECONDS, load_transcriber, resam
 FIXTURES = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
 MODES = ("EXHAUSTIVE", "HEURISTIC", "DEFAULT")
 UNSEEN_SECONDS = (1.3, 2.1, 2.7, 3.3, 4.6, 5.9, 6.4, 7.9, 9.2, 11.3, 14.6, 17.9)
-RATE = 44_100
+MIC_RATE = 44_100
 IDLE_GAP_S = 8.0
-# A real dictation follows idle time, so also time calls after the GPU has been idle:
-# lengths seen above versus lengths never seen.
-IDLE_RUNS = (("seen", 5.9), ("unseen", 3.9), ("seen", 9.2), ("unseen", 7.1), ("seen", 2.7), ("unseen", 12.4))
+IDLE_RUNS = (
+    ("seen", UNSEEN_SECONDS[5]), ("unseen", 3.9),
+    ("seen", UNSEEN_SECONDS[8]), ("unseen", 7.1),
+    ("seen", UNSEEN_SECONDS[2]), ("unseen", 12.4),
+)
+assert not {s for label, s in IDLE_RUNS if label == "unseen"} & set(UNSEEN_SECONDS)
 
 
 def read_fixture(name: str) -> np.ndarray:
@@ -49,14 +45,14 @@ def measure(mode: str) -> dict:
     assert transcriber.provider == "CUDAExecutionProvider", transcriber.provider
 
     t0 = time.perf_counter()
-    transcriber.warm_up(RATE)
+    transcriber.warm_up(MIC_RATE)
     warmup_ms = (time.perf_counter() - t0) * 1000
 
-    speech = resample(np.concatenate([read_fixture("en"), read_fixture("pt")]), 16_000, RATE)
-    speech = np.tile(speech, int(np.ceil(max(UNSEEN_SECONDS) * RATE / len(speech))))
+    speech = resample(np.concatenate([read_fixture("en"), read_fixture("pt")]), 16_000, MIC_RATE)
+    speech = np.tile(speech, int(np.ceil(max(UNSEEN_SECONDS) * MIC_RATE / len(speech))))
     rows = []
     for seconds in UNSEEN_SECONDS:
-        audio = Audio(speech[: int(seconds * RATE)], RATE)
+        audio = Audio(speech[: int(seconds * MIC_RATE)], MIC_RATE)
         first_ms, text = timed_ms(transcriber, audio)
         steady_ms = min(timed_ms(transcriber, audio)[0] for _ in range(3))
         rows.append({"seconds": seconds, "first_ms": first_ms, "steady_ms": steady_ms, "words": len(text.split())})
@@ -64,7 +60,7 @@ def measure(mode: str) -> dict:
     idle = {}
     for label, seconds in IDLE_RUNS:
         time.sleep(IDLE_GAP_S)
-        idle.setdefault(label, []).append(timed_ms(transcriber, Audio(speech[: int(seconds * RATE)], RATE))[0])
+        idle.setdefault(label, []).append(timed_ms(transcriber, Audio(speech[: int(seconds * MIC_RATE)], MIC_RATE))[0])
     return {"mode": mode, "load_s": load_s, "warmup_ms": warmup_ms, "rows": rows, "idle": idle}
 
 
@@ -85,7 +81,7 @@ def main() -> int:
         for mode in MODES
     ]
 
-    print(f"warm-up {WARMUP_SECONDS} s @ {RATE} Hz, then each length once (first) and best of 3 more (steady), ms")
+    print(f"warm-up {WARMUP_SECONDS} s @ {MIC_RATE} Hz, then each length once (first) and best of 3 more (steady), ms")
     print(f"{'audio':>6} {'words':>5}  " + "  ".join(f"{r['mode']:>17}" for r in results))
     for i, seconds in enumerate(UNSEEN_SECONDS):
         cells = "  ".join(f"{r['rows'][i]['first_ms']:>8.0f} / {r['rows'][i]['steady_ms']:<6.0f}" for r in results)

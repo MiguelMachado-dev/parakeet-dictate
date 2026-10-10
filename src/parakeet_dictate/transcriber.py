@@ -1,5 +1,3 @@
-"""Parakeet TDT 0.6B v3 through onnx-asr: CUDA fp32 when available, CPU int8 otherwise."""
-
 import logging
 import re
 import time
@@ -19,9 +17,6 @@ log = logging.getLogger(__name__)
 
 MODEL_NAME = "nemo-parakeet-tdt-0.6b-v3"
 CUDA = "CUDAExecutionProvider"
-# ORT's default. scripts/bench_latency.py: HEURISTIC matched it within noise on unseen
-# lengths (the first-call penalty is not algorithm search), DEFAULT was ~3.5x slower.
-CUDNN_CONV_ALGO_SEARCH = "EXHAUSTIVE"
 MIN_SECONDS = 0.1
 WARMUP_SECONDS = (1.0, 4.0)
 
@@ -54,15 +49,12 @@ class Transcriber:
 
 
 def resample(samples: npt.NDArray[np.float32], rate: int, target: int) -> npt.NDArray[np.float32]:
-    """Band-limited resample via FFT, for device rates onnx-asr does not accept."""
     n_out = round(len(samples) * target / rate)
     spectrum = np.fft.rfft(samples)[: n_out // 2 + 1]
     return (np.fft.irfft(spectrum, n_out) * (n_out / len(samples))).astype(np.float32)
 
 
-def load_transcriber(
-    model_dir: Path, provider: str, *, cudnn_conv_algo_search: str = CUDNN_CONV_ALGO_SEARCH
-) -> Transcriber:
+def load_transcriber(model_dir: Path, provider: str, *, cudnn_conv_algo_search: str | None = None) -> Transcriber:
     if not (model_dir / "config.json").exists():
         raise FileNotFoundError(f"no model in {model_dir}; run scripts/download_model.py")
     onnxruntime.set_default_logger_severity(3)
@@ -79,11 +71,12 @@ def load_transcriber(
     return _load(model_dir, cuda=False)
 
 
-def _load(model_dir: Path, *, cuda: bool, cudnn_conv_algo_search: str = CUDNN_CONV_ALGO_SEARCH) -> Transcriber:
+def _load(model_dir: Path, *, cuda: bool, cudnn_conv_algo_search: str | None = None) -> Transcriber:
     t0 = time.perf_counter()
     if cuda:
         onnxruntime.preload_dlls()
-        providers = [(CUDA, {"cudnn_conv_algo_search": cudnn_conv_algo_search}), "CPUExecutionProvider"]
+        cuda_options = {"cudnn_conv_algo_search": cudnn_conv_algo_search} if cudnn_conv_algo_search else {}
+        providers = [(CUDA, cuda_options), "CPUExecutionProvider"]
         quantization = None
     else:
         providers = ["CPUExecutionProvider"]

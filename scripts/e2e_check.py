@@ -1,11 +1,3 @@
-"""End-to-end check of the real pipeline: low-level keyboard hook, reducer, transcriber on CUDA,
-and clipboard paste into a separate-process Tk window. Only the microphone is replaced, by a
-recorder that returns fixture speech.
-
-The user may be at this PC, so every keystroke is preceded by a check that the target window
-is in the foreground, and the run aborts otherwise.
-"""
-
 import ctypes
 import json
 import logging
@@ -91,8 +83,6 @@ class Target:
 
 
 class Keyboard:
-    """The only path for synthetic keystrokes in this script."""
-
     def __init__(self, target: Target) -> None:
         self.target = target
         self.held: set[int] = set()
@@ -105,21 +95,24 @@ class Keyboard:
 
     def press(self, vk: int) -> None:
         self.require_foreground()
-        inject.send_keys([(vk, False)], tag=0)
+        inject.send_keys([inject.Stroke(vk, up=False)], tag=0)
         self.held.add(vk)
+
+    def auto_repeat(self, vk: int, times: int, interval_s: float) -> None:
+        for _ in range(times):
+            time.sleep(interval_s)
+            self.press(vk)
 
     def release(self, vk: int) -> float:
         self.require_foreground()
         released_at = time.perf_counter()
-        inject.send_keys([(vk, True)], tag=0)
+        inject.send_keys([inject.Stroke(vk, up=True)], tag=0)
         self.held.discard(vk)
         return released_at
 
-    def release_all(self) -> None:
-        # A key-up types nothing, and a synthetic key left down would turn the user's next
-        # keystrokes into shortcuts, so this one is sent without the foreground check.
+    def release_held_keys_unguarded(self) -> None:
         for vk in sorted(self.held):
-            inject.send_keys([(vk, True)], tag=0)
+            inject.send_keys([inject.Stroke(vk, up=True)], tag=0)
         self.held.clear()
 
 
@@ -176,8 +169,7 @@ def main() -> int:
         on_state=lambda state: states.append((time.perf_counter(), state)),
     )
     # Low-level hooks run newest first, so this one, installed before the app's, only sees
-    # keys the app let through. It swallows any Esc it gets: if the app ever failed to,
-    # Esc with Ctrl down would open the Start menu on the user's screen.
+    # keys the app let through.
     escapes_leaked: list[int] = []
 
     def witness(msg: int, data: object) -> bool:
@@ -196,7 +188,7 @@ def main() -> int:
 
     def landed(name: str, flow: str, released: float) -> None:
         text, seen_at = wait_for_text(target)
-        time.sleep(inject.SETTLE_S + 0.3)
+        time.sleep(inject.CLIPBOARD_RESTORE_DELAY_S + 0.3)
         wer = word_error_rate(words(fixtures[name][1]), words(text))
         paste_ms = (pastes[-1] - released) * 1000
         visible_ms = (seen_at - released) * 1000
@@ -221,9 +213,7 @@ def main() -> int:
             inject.set_text(SENTINEL)
             recorder.audio = fixtures[name][0]
             keyboard.press(HOTKEY)
-            for _ in range(4):
-                time.sleep(0.2)
-                keyboard.press(HOTKEY)  # what keyboard auto-repeat looks like to the hook
+            keyboard.auto_repeat(HOTKEY, times=4, interval_s=0.2)
             time.sleep(0.2)
             landed(name, "hold", keyboard.release(HOTKEY))
 
@@ -264,7 +254,7 @@ def main() -> int:
         print(f"ABORTED: {e}")
         return 3
     finally:
-        keyboard.release_all()
+        keyboard.release_held_keys_unguarded()
         if started:
             dictation.stop()
         witness_hook.stop()

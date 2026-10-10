@@ -1,5 +1,3 @@
-"""Microphone capture. The input stream exists only between start() and stop()/discard()."""
-
 from dataclasses import dataclass
 
 import numpy as np
@@ -22,7 +20,6 @@ class RecorderError(RuntimeError):
 
 
 def default_input_rate() -> int:
-    """The rate the next recording will most likely use, so warm-up can exercise its resampler."""
     try:
         return int(sd.query_devices(kind="input")["default_samplerate"])
     except sd.PortAudioError:
@@ -30,8 +27,6 @@ def default_input_rate() -> int:
 
 
 class Recorder:
-    """Records the default input device at its native rate, mono float32."""
-
     def __init__(self) -> None:
         self._stream: sd.InputStream | None = None
         self._chunks: list[npt.NDArray[np.float32]] = []
