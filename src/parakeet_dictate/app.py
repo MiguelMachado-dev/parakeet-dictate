@@ -1,6 +1,7 @@
 import argparse
 import ctypes
 import itertools
+import json
 import logging
 import math
 import os
@@ -23,7 +24,8 @@ from PIL import Image, ImageDraw
 from pynput import keyboard
 
 from . import inject
-from .config import LOG_PATH, Config, ConfigError, load_config
+from .config import LOG_PATH, POSTPROCESS_CHOICE_PATH, Config, ConfigError, load_api_key, load_config
+from .polish import GlmClient, PolishError
 from .recorder import Audio, Recorder, default_input_rate
 from .reducer import (
     AwaitingRelease,
@@ -38,6 +40,10 @@ from .reducer import (
     OtherKeyDown,
     Paste,
     PlaySound,
+    Polish,
+    PolishFailed,
+    Polished,
+    Polishing,
     Recording,
     RecordingFailed,
     StartRecording,
@@ -86,6 +92,8 @@ class Dictation:
         paste: Callable[[str], None] = inject.paste,
         cues: "Cues",
         on_state: Callable[[State], None] = lambda state: None,
+        glm: GlmClient | None = None,
+        polish_enabled: Callable[[], bool] = lambda: True,
     ) -> None:
         self._config = config
         self._recorder = recorder
@@ -93,14 +101,19 @@ class Dictation:
         self._paste = paste
         self._cues = cues
         self._on_state = on_state
+        self._glm = glm
+        self._polish_enabled = polish_enabled
         self._events: queue.Queue[Event | None] = queue.Queue()
         self._state: State = Idle()
         self._released_at = 0.0
         self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="transcribe")
+        # Two workers, so a request still running after Esc never delays the next dictation's.
+        self._polisher = ThreadPoolExecutor(max_workers=2, thread_name_prefix="polish")
         self._request_ids = itertools.count(1)
         self._controller = threading.Thread(target=self._run, name="controller", daemon=True)
         self._listener = keyboard.Listener(win32_event_filter=self._on_key)
         self._hook_hotkey_held = False
+        self._hook_esc_swallowed = False
 
     def start(self) -> None:
         self._controller.start()
@@ -112,6 +125,7 @@ class Dictation:
         self._events.put(None)
         self._controller.join(timeout=10)
         self._worker.shutdown(wait=True, cancel_futures=True)
+        self._polisher.shutdown(wait=False, cancel_futures=True)
         self._recorder.discard()
 
     def post(self, event: Event) -> None:
@@ -128,10 +142,14 @@ class Dictation:
                     self._hook_hotkey_held = down
                     self.post(HotkeyDown(time.perf_counter()) if down else HotkeyUp(time.perf_counter()))
                 elif data.vkCode == inject.VK_ESCAPE:
-                    # With Ctrl as the hotkey, Esc while holding it is Ctrl+Esc, which opens Start.
-                    swallow = self._hook_hotkey_held
                     if down:
+                        # With Ctrl as the hotkey, Esc while holding it is Ctrl+Esc, which opens Start.
+                        # While polishing, Esc pastes the raw transcript into the focused app, which
+                        # must not also act on the Esc. The controller only ever replaces _state with
+                        # an immutable state, so reading it from this thread is safe.
+                        self._hook_esc_swallowed = self._hook_hotkey_held or isinstance(self._state, Polishing)
                         self.post(Cancel())
+                    swallow = self._hook_esc_swallowed
                 elif down:
                     self.post(OtherKeyDown())
         except Exception:
@@ -162,9 +180,10 @@ class Dictation:
         if isinstance(event, HotkeyUp):
             self._released_at = event.t
         previous = self._state
-        self._state, effects = step(previous, event, self._config.tap_threshold_ms / 1000)
+        polish = self._glm is not None and self._polish_enabled()
+        self._state, effects = step(previous, event, self._config.tap_threshold_ms / 1000, polish)
         if self._state != previous:
-            log.info("%s -> %s", previous, self._state)
+            log.info("%s -> %s on %s", previous, self._state, event)
             self._on_state(self._state)
         for effect in effects:
             self._execute(effect)
@@ -200,6 +219,19 @@ class Dictation:
                     log.info("pasted %d chars, sent %.0f ms after the hotkey release", len(text), since_release_ms)
             case PlaySound(cue):
                 self._cues.play(cue)
+            case Polish(text, request_id):
+                self._polisher.submit(self._polish, text, request_id)
+
+    def _polish(self, text: str, request_id: int) -> None:
+        try:
+            result = Polished(request_id, self._glm.polish(text))
+        except PolishError as e:
+            log.warning("post-processing failed: %s", e)
+            result = PolishFailed(request_id, str(e))
+        except Exception as e:
+            log.exception("post-processing crashed")
+            result = PolishFailed(request_id, type(e).__name__)
+        self.post(result)
 
     def _transcribe(self, audio: Audio) -> None:
         t0 = time.perf_counter()
@@ -252,20 +284,58 @@ class Cues:
             f.writeframes(struct.pack(f"<{len(samples)}h", *samples))
 
 
-class Tray:
-    COLORS = {"idle": "#9e9e9e", "recording": "#e53935", "transcribing": "#ffb300"}
+class PostprocessChoice:
+    """The tray's "Post-process with GLM" check, saved so that it survives a restart."""
 
-    def __init__(self, on_quit: Callable[[], None]) -> None:
+    def __init__(self, default: bool, path: Path = POSTPROCESS_CHOICE_PATH) -> None:
+        self._path = path
+        self.on = default
+        try:
+            saved = json.loads(path.read_text(encoding="utf-8"))["enabled"]
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError, LookupError, TypeError):
+            saved = None
+        if type(saved) is bool:
+            self.on = saved
+        else:
+            log.warning("ignoring %s: expected {\"enabled\": true|false}", path.name)
+
+    def toggle(self) -> None:
+        self.on = not self.on
+        log.info("post-processing turned %s from the tray", "on" if self.on else "off")
+        try:
+            self._path.write_text(json.dumps({"enabled": self.on}), encoding="utf-8")
+        except OSError:
+            log.exception("could not save the post-processing choice")
+
+
+class Tray:
+    COLORS = {"idle": "#9e9e9e", "recording": "#e53935", "transcribing": "#ffb300", "polishing": "#8e24aa"}
+
+    def __init__(self, on_quit: Callable[[], None], postprocess: PostprocessChoice, glm_available: bool) -> None:
         self.provider = ""
+        self._postprocess = postprocess
         self.icon = pystray.Icon(
             "parakeet-dictate",
             self._ring("#9e9e9e"),
             "Parakeet Dictate: loading model",
             menu=pystray.Menu(
+                pystray.MenuItem(
+                    "Post-process with GLM" if glm_available else "Post-process with GLM (no ZAI_API_KEY)",
+                    lambda: self._toggle_postprocess(),
+                    checked=lambda item: glm_available and postprocess.on,
+                    enabled=glm_available,
+                ),
+                pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open log", lambda: os.startfile(LOG_PATH)),
                 pystray.MenuItem("Quit", lambda: on_quit()),
             ),
         )
+
+    def _toggle_postprocess(self) -> None:
+        self._postprocess.toggle()
+        self.icon.update_menu()
 
     def show_state(self, state: State) -> None:
         match state:
@@ -273,6 +343,8 @@ class Tray:
                 status = "recording"
             case Transcribing() | AwaitingRelease():
                 status = "transcribing"
+            case Polishing():
+                status = "polishing"
             case _:
                 status = "idle"
         self.icon.icon = self._disc(self.COLORS[status])
@@ -324,6 +396,7 @@ def setup_logging() -> None:
     handler = RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(threadName)s %(name)s: %(message)s"))
     logging.basicConfig(level=logging.INFO, handlers=[handler])
+    logging.getLogger("httpx2").setLevel(logging.WARNING)
     logging.captureWarnings(True)
     sys.excepthook = lambda *exc: log.critical("uncaught exception", exc_info=exc)
     threading.excepthook = lambda args: log.critical(
@@ -354,7 +427,10 @@ def main() -> int:
         return 1
 
     quit_event = kernel32.CreateEventW(None, True, False, QUIT_EVENT_NAME)
-    tray = Tray(on_quit=lambda: tray.icon.stop())
+    api_key = load_api_key()
+    glm = GlmClient(config.postprocess, api_key) if api_key else None
+    postprocess = PostprocessChoice(config.postprocess.enabled)
+    tray = Tray(on_quit=lambda: tray.icon.stop(), postprocess=postprocess, glm_available=glm is not None)
     cues = Cues(config.sounds)
     stopping = threading.Event()
     running: list[Dictation] = []
@@ -366,11 +442,24 @@ def main() -> int:
             if stopping.is_set():
                 return
             tray.provider = transcriber.label
-            dictation = Dictation(config, recorder=Recorder(), transcriber=transcriber, cues=cues, on_state=tray.show_state)
+            dictation = Dictation(
+                config,
+                recorder=Recorder(),
+                transcriber=transcriber,
+                cues=cues,
+                on_state=tray.show_state,
+                glm=glm,
+                polish_enabled=lambda: postprocess.on,
+            )
             dictation.start()
             running.append(dictation)
             tray.show_state(Idle())
-            log.info("ready: provider %s, hotkey %s", transcriber.provider, config.hotkey)
+            if glm is None:
+                postprocessing = "unavailable, no ZAI_API_KEY in the environment or .env"
+            else:
+                settings = f"{config.postprocess.model}, reasoning effort {config.postprocess.reasoning_effort}"
+                postprocessing = f"{'on' if postprocess.on else 'off'} ({settings})"
+            log.info("ready: provider %s, hotkey %s, post-processing %s", transcriber.provider, config.hotkey, postprocessing)
         except Exception as e:
             log.exception("startup failed")
             tray.show_error(str(e) or type(e).__name__)
@@ -391,6 +480,8 @@ def main() -> int:
     loader.join()
     for dictation in running:
         dictation.stop()
+    if glm is not None:
+        glm.close()
     kernel32.CloseHandle(quit_event)
     kernel32.CloseHandle(mutex)
     log.info("stopped")

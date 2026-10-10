@@ -12,6 +12,7 @@ if not (ROOT / "pyproject.toml").is_file():
 CONFIG_PATH = ROOT / "config.toml"
 LOG_PATH = ROOT / "dictate.log"
 ENV_PATH = ROOT / ".env"
+POSTPROCESS_CHOICE_PATH = ROOT / "postprocess.json"
 
 
 class ConfigError(ValueError):
