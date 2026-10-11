@@ -105,7 +105,7 @@ A Mac on the same network can dictate through this PC. The Mac app records, send
 2. Run `.\scripts\allow_mac.ps1` once. It asks for administrator rights and creates the Windows Firewall rule **Parakeet Dictate (Mac)**, which allows the port from the local subnet only, on every network profile. Run it again after changing the port. `.\scripts\allow_mac.ps1 -Remove` deletes the rule.
 3. Click **Copy Mac connection info** in the tray. The clipboard then holds the URL, such as `http://192.168.3.2:8765`, on the first line and the token on the second. The app picks the address of the physical adapter with the default route, so a VPN tunnel such as NordLynx is skipped.
 
-If the port is in use, the app plays the error tone, writes the reason to `dictate.log`, and leaves **Server for Mac** off. The log has one line per request with the method, path, status, audio length, and the transcription and GLM times, never the text or the token.
+If the port is in use, the app plays the error tone, writes the reason to `dictate.log`, and leaves **Server for Mac** off. The log has one line per request with the method, path, status, audio length, and the transcription and GLM times, never the text or the token. The transcription time includes any wait for a local dictation to finish.
 
 ## Configure
 
