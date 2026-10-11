@@ -1,5 +1,6 @@
 import logging
 import re
+import threading
 import time
 from pathlib import Path
 from typing import get_args
@@ -46,6 +47,26 @@ class Transcriber:
             t0 = time.perf_counter()
             self.transcribe(Audio(noise[: int(seconds * rate)], rate))
             log.info("warm-up %.1f s @ %d Hz: %.0f ms", seconds, rate, (time.perf_counter() - t0) * 1000)
+
+
+class SharedModel:
+    """The one loaded model, shared by local dictation and the server for Mac. It runs one transcription
+    at a time: a caller that arrives during another's waits for it."""
+
+    def __init__(self) -> None:
+        self._transcriber: Transcriber | None = None
+        self._lock = threading.Lock()
+
+    @property
+    def ready(self) -> bool:
+        return self._transcriber is not None
+
+    def load(self, transcriber: Transcriber) -> None:
+        self._transcriber = transcriber
+
+    def transcribe(self, audio: Audio) -> str:
+        with self._lock:
+            return self._transcriber.transcribe(audio)
 
 
 def resample(samples: npt.NDArray[np.float32], rate: int, target: int) -> npt.NDArray[np.float32]:
