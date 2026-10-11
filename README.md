@@ -97,6 +97,16 @@ With post-processing on:
 
 To turn it off or on, right-click the tray icon and click **Post-process with GLM**. The app saves your choice in `tray_choices.json` in the project root and uses it on the next start, ahead of the `enabled` setting in `config.toml`. Without an API key, the item is unavailable and reads **Post-process with GLM (no ZAI_API_KEY)**.
 
+## Dictate from a Mac
+
+A Mac on the same network can dictate through this PC. The Mac app records, sends the audio here, and pastes the text that comes back, transcribed by Parakeet and post-processed by GLM when **Post-process with GLM** is on. Local dictation keeps working while the server runs, and the two never transcribe at the same time: a request that arrives during a local dictation waits for it. The Mac app is a separate project; [docs/mac-client.md](docs/mac-client.md) has the HTTP contract and the brief for building it.
+
+1. Right-click the tray icon and click **Server for Mac**. The server listens on port 8765 on every network adapter. On first start the app creates a random token in `server_token.txt` in the project root. Keep that file private: anyone with the token on your network can use your GLM key. To use a new token, delete the file and turn the server off and on.
+2. Run `.\scripts\allow_mac.ps1` once. It asks for administrator rights and creates the Windows Firewall rule **Parakeet Dictate (Mac)**, which allows the port from the local subnet only, on every network profile. Run it again after changing the port. `.\scripts\allow_mac.ps1 -Remove` deletes the rule.
+3. Click **Copy Mac connection info** in the tray. The clipboard then holds the URL, such as `http://192.168.3.2:8765`, on the first line and the token on the second. The app picks the address of the physical adapter with the default route, so a VPN tunnel such as NordLynx is skipped.
+
+If the port is in use, the app plays the error tone, writes the reason to `dictate.log`, and leaves **Server for Mac** off. The log has one line per request with the method, path, status, audio length, and the transcription and GLM times, never the text or the token.
+
 ## Configure
 
 Copy `config.example.toml` to `config.toml` and uncomment the settings to change. Restart the app after editing.
@@ -122,11 +132,19 @@ Post-processing settings go in a `[postprocess]` table at the end of `config.tom
 | `timeout_s` | `8.0` | Seconds to wait for GLM before pasting the raw transcript. |
 | `extra_instructions` | `""` | Text added to the end of the system prompt. List names and terms that GLM must spell your way, for example `"Names: Miguel, João. Terms: Parakeet, Z.ai."` |
 
+Server settings go in a `[server]` table after `[postprocess]`:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | Whether the server for Mac starts on, until you change it from the tray. |
+| `port` | `8765` | The TCP port. |
+| `bind` | `"0.0.0.0"` | The IPv4 address to listen on. `"0.0.0.0"` is every adapter. |
+
 If `config.toml` has an unknown setting or an invalid value, the app writes the reason to `dictate.log` and exits.
 
 ## Tray choices
 
-The app saves what you pick in the tray menu, **Post-process with GLM** and **Overlay**, in `tray_choices.json` in the project root. A saved choice wins over its setting in `config.toml`, on this start and the next. A setting you never changed from the tray keeps following `config.toml`. Delete `tray_choices.json` to go back to the config settings for both. If the file holds a value the app does not recognize, the app logs a warning and uses the config setting for that key.
+The app saves what you pick in the tray menu, **Post-process with GLM**, **Overlay** and **Server for Mac**, in `tray_choices.json` in the project root. A saved choice wins over its setting in `config.toml`, on this start and the next. A setting you never changed from the tray keeps following `config.toml`. Delete `tray_choices.json` to go back to the config settings for all of them. If the file holds a value the app does not recognize, the app logs a warning and uses the config setting for that key.
 
 ## Install
 
