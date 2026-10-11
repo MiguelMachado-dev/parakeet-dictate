@@ -95,6 +95,10 @@ if ($Uninstall) {
         Remove-Item $RegistryKey -Recurse
         "Removed the Installed apps entry $RegistryKey"
     }
+    # Removing a firewall rule needs an administrator; uninstall stays unelevated and only points at it.
+    if (Get-NetFirewallRule -DisplayName "Parakeet Dictate (Mac)" -ErrorAction SilentlyContinue) {
+        "Kept the firewall rule 'Parakeet Dictate (Mac)'. Remove it with .\scripts\allow_mac.ps1 -Remove"
+    }
     "Left in place: the project folder $root, the model in $model, and tray_choices.json."
     return
 }
