@@ -1,21 +1,41 @@
+import io
 import json
+import socket
 import sys
 import threading
 import time
 import uuid
+import wave
 from collections.abc import Callable
+from dataclasses import replace
 from types import SimpleNamespace
 
+import httpx2
 import pystray
 import pytest
 
 from parakeet_dictate import app
 from parakeet_dictate.app import ActiveOverlay, Tray, TrayChoices
-from parakeet_dictate.config import Config
+from parakeet_dictate.config import Config, ServerConfig
 from parakeet_dictate.reducer import Cue, HotkeyDown, Idle, Mode, Recording, Transition
+from parakeet_dictate.server import DictationServer
 from parakeet_dictate.styles import STYLES
+from parakeet_dictate.transcriber import SharedModel
 
 RECORDING = Transition(Idle(), Recording(Mode.HOLD, 0.0), HotkeyDown(0.0), ())
+
+
+def _silence() -> bytes:
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(16_000)
+        f.writeframes(bytes(32_000))
+    return buffer.getvalue()
+
+
+SECOND_OF_SILENCE = _silence()
 
 
 class FakeOverlay:
@@ -102,11 +122,31 @@ def overlay_items(icon: pystray.Icon) -> list[pystray.MenuItem]:
     return list(submenu.items)
 
 
+def free_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def local_server(tmp_path, port: int = 0) -> DictationServer:
+    return DictationServer(
+        ServerConfig(bind="127.0.0.1", port=port), model=SharedModel(), glm=None, polish_enabled=lambda: False,
+        timeout_s=1.0, token_path=tmp_path / "server_token.txt",
+    )
+
+
+def make_tray(tmp_path, overlay: ActiveOverlay, server: DictationServer | None = None, cues: FakeCues | None = None) -> Tray:
+    choices = TrayChoices(Config(), tmp_path / "tray_choices.json")
+    return Tray(
+        lambda: None, choices, overlay, glm_available=False, server=server or local_server(tmp_path), cues=cues or FakeCues()
+    )
+
+
 def test_the_overlay_menu_has_a_radio_item_per_style_and_off_that_switches_and_saves(tmp_path):
     path = tmp_path / "tray_choices.json"
     windows = Windows()
     overlay = ActiveOverlay("off", windows, FakeCues())
-    tray = Tray(lambda: None, TrayChoices(Config(), path), overlay, glm_available=False)
+    tray = make_tray(tmp_path, overlay)
     items = overlay_items(tray.icon)
     assert [item.text for item in items] == ["Fluid", "Bars", "Off"]
     assert all(item.radio for item in items)
@@ -118,7 +158,57 @@ def test_the_overlay_menu_has_a_radio_item_per_style_and_off_that_switches_and_s
         assert [i.checked for i in items] == [i.text.lower() == style for i in items]
         assert json.loads(path.read_text(encoding="utf-8")) == {"overlay": style}
     assert len(windows.opened) == 1
-    assert [item.text for item in tray.icon.menu.items if item.text] == ["Post-process with GLM (no ZAI_API_KEY)", "Overlay", "- - - -", "Open log", "Quit"]
+    assert [item.text for item in tray.icon.menu.items if item.text] == [
+        "Post-process with GLM (no ZAI_API_KEY)", "Overlay", "Server for Mac", "Copy Mac connection info", "- - - -",
+        "Open log", "Quit",
+    ]
+
+
+def server_items(icon: pystray.Icon) -> tuple[pystray.MenuItem, pystray.MenuItem]:
+    items = {item.text: item for item in icon.menu.items}
+    return items["Server for Mac"], items["Copy Mac connection info"]
+
+
+def health_status(port: int, token: str) -> int | None:
+    """None when nothing listens on the port."""
+    try:
+        return httpx2.get(
+            f"http://127.0.0.1:{port}/v1/health", headers={"Authorization": f"Bearer {token}"}, timeout=5
+        ).status_code
+    except httpx2.ConnectError:
+        return None
+
+
+def test_the_server_item_starts_and_stops_the_server_and_saves_the_choice(tmp_path):
+    port = free_port()
+    server = local_server(tmp_path, port)
+    tray = make_tray(tmp_path, ActiveOverlay("off", Windows(), FakeCues()), server)
+    toggle, copy = server_items(tray.icon)
+    saved = lambda: json.loads((tmp_path / "tray_choices.json").read_text(encoding="utf-8"))
+    assert (toggle.checked, copy.enabled) == (False, False)
+    try:
+        for _ in range(2):
+            toggle(tray.icon)
+            assert (toggle.checked, copy.enabled, saved()) == (True, True, {"server": True})
+            assert health_status(port, server.token) == 200
+            toggle(tray.icon)
+            assert (toggle.checked, copy.enabled, saved()) == (False, False, {"server": False})
+            assert health_status(port, server.token) is None
+    finally:
+        server.stop()
+
+
+def test_a_port_in_use_leaves_the_server_off_with_the_error_cue(tmp_path):
+    cues = FakeCues()
+    with socket.socket() as blocker:
+        blocker.bind(("127.0.0.1", 0))
+        blocker.listen()
+        server = local_server(tmp_path, blocker.getsockname()[1])
+        tray = make_tray(tmp_path, ActiveOverlay("off", Windows(), FakeCues()), server, cues)
+        toggle, copy = server_items(tray.icon)
+        toggle(tray.icon)
+    assert (server.running, toggle.checked, copy.enabled, cues.played) == (False, False, False, [Cue.ERROR])
+    assert not (tmp_path / "tray_choices.json").exists()
 
 
 def wait_until(condition: Callable[[], object], what: str) -> None:
@@ -138,12 +228,16 @@ def fake_main(tmp_path, monkeypatch, caplog) -> SimpleNamespace:
     for name in ("MUTEX_NAME", "QUIT_EVENT_NAME", "LAUNCH_EVENT_NAME"):
         monkeypatch.setattr(app, name, f"{getattr(app, name)}-test-{tag}")
     monkeypatch.setattr(app, "TRAY_CHOICES_PATH", tmp_path / "tray_choices.json")
+    monkeypatch.setattr(app, "SERVER_TOKEN_PATH", tmp_path / "server_token.txt")
     monkeypatch.setattr(app, "load_api_key", lambda: None)
     monkeypatch.setattr(app, "default_input_rate", lambda: 16_000)
     harness = SimpleNamespace(
         config=Config(overlay="off", sounds=False), windows=Windows(), dictations=[], notifications=[]
     )
-    monkeypatch.setattr(app, "load_config", lambda: harness.config)
+    # Whatever a test configures, the server listens on loopback only, on a port of the system's choosing.
+    monkeypatch.setattr(
+        app, "load_config", lambda: replace(harness.config, server=replace(harness.config.server, bind="127.0.0.1", port=0))
+    )
     monkeypatch.setattr(app, "Overlay", lambda renderer, levels: harness.windows(renderer))
     monkeypatch.setattr(
         pystray.Icon, "notify", lambda icon, message, title=None: harness.notifications.append((message, title))
@@ -154,6 +248,9 @@ def fake_main(tmp_path, monkeypatch, caplog) -> SimpleNamespace:
 
         def warm_up(self, rate: int) -> None:
             pass
+
+        def transcribe(self, audio) -> str:
+            return "from the loaded model"
 
     monkeypatch.setattr(app, "load_transcriber", lambda model_dir, provider: Transcriber())
 
@@ -231,3 +328,27 @@ def test_notify_ready_shows_one_notification_naming_the_configured_hotkey(fake_m
 def test_a_start_without_notify_ready_shows_no_notification(fake_main):
     assert fake_main.run() == 0
     assert fake_main.notifications == []
+
+
+def test_a_saved_server_choice_serves_the_loaded_model_until_quit(fake_main, tmp_path, caplog):
+    (tmp_path / "tray_choices.json").write_text('{"server": true}', encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def during(icon: pystray.Icon) -> None:
+        (line,) = [r.getMessage() for r in caplog.records if r.getMessage().startswith("server for Mac listening")]
+        seen["port"] = port = int(line.rsplit(":", 1)[1])
+        token = (tmp_path / "server_token.txt").read_text(encoding="utf-8")
+        response = httpx2.post(
+            f"http://127.0.0.1:{port}/v1/audio/transcriptions",
+            files={"file": ("a.wav", SECOND_OF_SILENCE, "audio/wav")},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5,
+        )
+        seen["reply"] = response.json()
+        seen["dictation shares the model"] = fake_main.dictations[0]["transcriber"].transcribe(None)
+        seen["checked"] = server_items(icon)[0].checked
+
+    assert fake_main.run(during=during) == 0
+    assert seen["reply"] == {"text": "from the loaded model", "raw": "from the loaded model", "polished": False}
+    assert (seen["dictation shares the model"], seen["checked"]) == ("from the loaded model", True)
+    assert health_status(seen["port"], "any") is None, "the server outlived quit"

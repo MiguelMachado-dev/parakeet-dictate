@@ -24,7 +24,16 @@ from PIL import Image, ImageDraw
 from pynput import keyboard
 
 from . import inject
-from .config import LOG_PATH, OVERLAY_CHOICES, TRAY_CHOICES_PATH, Config, ConfigError, load_api_key, load_config
+from .config import (
+    LOG_PATH,
+    OVERLAY_CHOICES,
+    SERVER_TOKEN_PATH,
+    TRAY_CHOICES_PATH,
+    Config,
+    ConfigError,
+    load_api_key,
+    load_config,
+)
 from .overlay import Overlay
 from .overlay_frame import Renderer
 from .polish import GlmClient, PolishError
@@ -56,8 +65,9 @@ from .reducer import (
     Transition,
     step,
 )
+from .server import DictationServer
 from .styles import STYLES
-from .transcriber import Transcriber, load_transcriber
+from .transcriber import SharedModel, load_transcriber
 
 log = logging.getLogger("parakeet_dictate")
 
@@ -93,7 +103,7 @@ class Dictation:
         config: Config,
         *,
         recorder: Recorder,
-        transcriber: Transcriber,
+        transcriber: SharedModel,
         paste: Callable[[str], None] = inject.paste,
         cues: "Cues",
         on_transition: Callable[[Transition], None] = lambda transition: None,
@@ -314,11 +324,12 @@ class TrayChoices:
     _VALID: dict[str, Callable[[object], bool]] = {
         "postprocess": lambda value: type(value) is bool,
         "overlay": lambda value: isinstance(value, str) and value in OVERLAY_CHOICES,
+        "server": lambda value: type(value) is bool,
     }
 
     def __init__(self, config: Config, path: Path) -> None:
         self._path = path
-        self._config = {"postprocess": config.postprocess.enabled, "overlay": config.overlay}
+        self._config = {"postprocess": config.postprocess.enabled, "overlay": config.overlay, "server": config.server.enabled}
         # Only keys chosen in the tray, so a choice of one never pins the other's config value.
         self._chosen: dict[str, object] = {}
         try:
@@ -344,6 +355,10 @@ class TrayChoices:
     def overlay(self) -> str:
         """A style name or "off"."""
         return self._chosen.get("overlay", self._config["overlay"])
+
+    @property
+    def server(self) -> bool:
+        return self._chosen.get("server", self._config["server"])
 
     def choose(self, key: str, value: object) -> None:
         self._chosen[key] = value
@@ -404,11 +419,19 @@ class Tray:
     COLORS = {"idle": "#9e9e9e", "recording": "#e53935", "transcribing": "#ffb300", "polishing": "#8e24aa"}
 
     def __init__(
-        self, on_quit: Callable[[], None], choices: TrayChoices, overlay: ActiveOverlay, glm_available: bool
+        self,
+        on_quit: Callable[[], None],
+        choices: TrayChoices,
+        overlay: ActiveOverlay,
+        glm_available: bool,
+        server: DictationServer,
+        cues: Cues,
     ) -> None:
         self.provider = ""
         self._choices = choices
         self._overlay = overlay
+        self._server = server
+        self._cues = cues
         self.icon = pystray.Icon(
             "parakeet-dictate",
             self._ring("#9e9e9e"),
@@ -421,6 +444,12 @@ class Tray:
                     enabled=glm_available,
                 ),
                 pystray.MenuItem("Overlay", pystray.Menu(*map(self._overlay_item, OVERLAY_CHOICES))),
+                pystray.MenuItem("Server for Mac", lambda: self._toggle_server(), checked=lambda item: server.running),
+                pystray.MenuItem(
+                    "Copy Mac connection info",
+                    lambda: threading.Thread(target=self._copy_connection_info, name="connection-info").start(),
+                    enabled=lambda item: server.running,
+                ),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Open log", lambda: os.startfile(LOG_PATH)),
                 pystray.MenuItem("Quit", lambda: on_quit()),
@@ -448,6 +477,41 @@ class Tray:
         log.info("post-processing turned %s from the tray", "on" if on else "off")
         self._choices.choose("postprocess", on)
         self.icon.update_menu()
+
+    def start_server(self) -> bool:
+        try:
+            self._server.start()
+        except OSError:
+            log.exception("could not start the server for Mac")
+            self._cues.play(Cue.ERROR)
+            return False
+        return True
+
+    def _toggle_server(self) -> None:
+        if self._server.running:
+            self._server.stop()
+            self._choices.choose("server", False)
+            log.info("server for Mac turned off from the tray")
+        elif self.start_server():
+            self._choices.choose("server", True)
+            log.info("server for Mac turned on from the tray")
+        self.icon.update_menu()
+
+    def _copy_connection_info(self) -> None:
+        # Its own thread: finding the LAN address takes PowerShell a second or two.
+        info = self._server.connection_info()
+        if info is None:
+            self._cues.play(Cue.ERROR)
+            self.notify("Could not find this PC's address on the local network.")
+            return
+        try:
+            inject.set_text(info, keep_out_of_history=True)
+        except OSError:
+            log.exception("could not copy the Mac connection info")
+            self._cues.play(Cue.ERROR)
+            return
+        log.info("copied the Mac connection info: %s and the token", info.splitlines()[0])
+        self.notify(f"Copied {info.splitlines()[0]} and the token. Paste them into the Mac app.")
 
     def show_state(self, state: State) -> None:
         match state:
@@ -557,7 +621,26 @@ def main() -> int:
     cues = Cues(config.sounds)
     recorder = Recorder()
     overlay = ActiveOverlay(choices.overlay, lambda renderer: Overlay(renderer, lambda: recorder.meter.snapshot()), cues)
-    tray = Tray(on_quit=lambda: tray.icon.stop(), choices=choices, overlay=overlay, glm_available=glm is not None)
+    model = SharedModel()
+    server = DictationServer(
+        config.server,
+        model=model,
+        glm=glm,
+        polish_enabled=lambda: choices.postprocess,
+        timeout_s=config.postprocess.timeout_s,
+        token_path=SERVER_TOKEN_PATH,
+    )
+    tray = Tray(
+        on_quit=lambda: tray.icon.stop(),
+        choices=choices,
+        overlay=overlay,
+        glm_available=glm is not None,
+        server=server,
+        cues=cues,
+    )
+    # Before the model loads, so a Mac sees 503 "still loading" instead of no server.
+    if choices.server:
+        tray.start_server()
     stopping = threading.Event()
     running: list[Dictation] = []
 
@@ -567,6 +650,7 @@ def main() -> int:
             transcriber.warm_up(default_input_rate())
             if stopping.is_set():
                 return
+            model.load(transcriber)
             tray.provider = transcriber.label
 
             def on_transition(transition: Transition) -> None:
@@ -576,7 +660,7 @@ def main() -> int:
             dictation = Dictation(
                 config,
                 recorder=recorder,
-                transcriber=transcriber,
+                transcriber=model,
                 cues=cues,
                 on_transition=on_transition,
                 glm=glm,
@@ -591,8 +675,9 @@ def main() -> int:
                 settings = f"{config.postprocess.model}, reasoning effort {config.postprocess.reasoning_effort}"
                 postprocessing = f"{'on' if choices.postprocess else 'off'} ({settings})"
             log.info(
-                "ready: provider %s, hotkey %s, post-processing %s, overlay %s",
-                transcriber.provider, config.hotkey, postprocessing, overlay.style,
+                "ready: provider %s, hotkey %s, post-processing %s, server for Mac %s, overlay %s",
+                transcriber.provider, config.hotkey, postprocessing,
+                f"on port {server.port}" if server.running else "off", overlay.style,
             )
             if args.notify_ready:
                 tray.notify(f"Ready. {hint}")
@@ -620,6 +705,7 @@ def main() -> int:
     log.info("shutting down")
     stopping.set()
     loader.join()
+    server.stop()
     for dictation in running:
         dictation.stop()
     overlay.close()
