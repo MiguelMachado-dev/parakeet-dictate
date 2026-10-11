@@ -26,9 +26,11 @@
 # Model folder, relative to the project root or absolute.
 # model_dir = "models/parakeet-tdt-0.6b-v3"
 
+# Keep the two tables, [postprocess] and [server], at the end of the file: every
+# setting after a [table] line belongs to that table, until the next [table] line.
+
 # Post-processing: send each transcript to GLM through Z.ai to remove fillers and fix
 # punctuation before pasting. Needs ZAI_API_KEY in the environment or in .env.
-# Keep this table last: every setting after [postprocess] belongs to it.
 # [postprocess]
 
 # Initial state of the tray's "Post-process with GLM" item. Once you toggle the item,
@@ -47,3 +49,17 @@
 # Appended to the system prompt. List names and jargon to spell correctly, for example
 # "Names: Miguel, João. Terms: Parakeet, Z.ai, GLM."
 # extra_instructions = ""
+
+# Server for Mac: lets a Mac on the same network dictate through this PC's model and GLM.
+# See docs/mac-client.md. The token is in server_token.txt, created on first start.
+# [server]
+
+# Initial state of the tray's "Server for Mac" item. Once you toggle the item,
+# the tray choice is saved in tray_choices.json and wins over this setting.
+# enabled = false
+
+# TCP port. scripts/allow_mac.ps1 opens it in Windows Firewall for the local subnet.
+# port = 8765
+
+# The IPv4 address to listen on. "0.0.0.0" listens on every network adapter.
+# bind = "0.0.0.0"

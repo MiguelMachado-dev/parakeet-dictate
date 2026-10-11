@@ -1,3 +1,4 @@
+import ipaddress
 import os
 import tomllib
 from dataclasses import dataclass, fields
@@ -15,6 +16,7 @@ CONFIG_PATH = ROOT / "config.toml"
 LOG_PATH = ROOT / "dictate.log"
 ENV_PATH = ROOT / ".env"
 TRAY_CHOICES_PATH = ROOT / "tray_choices.json"
+SERVER_TOKEN_PATH = ROOT / "server_token.txt"
 OVERLAY_CHOICES = (*STYLES, "off")
 HOTKEY_LABELS = {
     "ctrl_l": "Left Ctrl",
@@ -44,6 +46,13 @@ class PostprocessConfig:
 
 
 @dataclass(frozen=True)
+class ServerConfig:
+    enabled: bool = False
+    port: int = 8765
+    bind: str = "0.0.0.0"
+
+
+@dataclass(frozen=True)
 class Config:
     hotkey: str = "ctrl_r"
     tap_threshold_ms: int = 300
@@ -54,6 +63,7 @@ class Config:
     overlay: str = DEFAULT_STYLE
     model_dir: Path = ROOT / "models" / "parakeet-tdt-0.6b-v3"
     postprocess: PostprocessConfig = PostprocessConfig()
+    server: ServerConfig = ServerConfig()
 
     @property
     def hotkey_vk(self) -> int:
@@ -131,6 +141,33 @@ def _parse(name: str, value: object) -> object:
             if unknown:
                 raise ConfigError(f"unknown postprocess setting(s) {sorted(unknown)}")
             return PostprocessConfig(**{key: _parse_postprocess(key, item) for key, item in value.items()})
+        case "server":
+            if not isinstance(value, dict):
+                raise ConfigError(f"server must be a table, [server]; got {value!r}")
+            unknown = value.keys() - {f.name for f in fields(ServerConfig)}
+            if unknown:
+                raise ConfigError(f"unknown server setting(s) {sorted(unknown)}")
+            return ServerConfig(**{key: _parse_server(key, item) for key, item in value.items()})
+    raise AssertionError(name)
+
+
+def _parse_server(name: str, value: object) -> object:
+    match name:
+        case "enabled":
+            if type(value) is not bool:
+                raise ConfigError(f"server.enabled must be true or false; got {value!r}")
+            return value
+        case "port":
+            if type(value) is not int or not 1 <= value <= 65535:
+                raise ConfigError(f"server.port must be an integer in 1..65535; got {value!r}")
+            return value
+        case "bind":
+            try:
+                # IPv4Address also takes an integer, which is no address to bind.
+                ipaddress.IPv4Address(value if isinstance(value, str) else "")
+            except ValueError:
+                raise ConfigError(f"server.bind must be an IPv4 address such as '0.0.0.0'; got {value!r}") from None
+            return value
     raise AssertionError(name)
 
 

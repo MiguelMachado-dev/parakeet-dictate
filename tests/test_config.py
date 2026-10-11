@@ -2,13 +2,21 @@ import re
 
 import pytest
 
-from parakeet_dictate.config import ROOT, Config, ConfigError, PostprocessConfig, load_api_key, load_config
+from parakeet_dictate.config import (
+    ROOT,
+    Config,
+    ConfigError,
+    PostprocessConfig,
+    ServerConfig,
+    load_api_key,
+    load_config,
+)
 
 
 def test_example_config_uncommented_matches_defaults(tmp_path):
     example = (ROOT / "config.example.toml").read_text(encoding="utf-8")
     settings = re.findall(r"^# (\w+ = .+|\[\w+\])$", example, flags=re.MULTILINE)
-    assert len(settings) == 14
+    assert len(settings) == 18
     path = tmp_path / "config.toml"
     path.write_text("\n".join(settings), encoding="utf-8")
     assert load_config(path) == Config()
@@ -68,13 +76,24 @@ def test_postprocess_table_overrides_only_the_settings_it_names(tmp_path):
     assert config.postprocess.model == "glm-5.3"
 
 
+def test_server_table_follows_the_postprocess_table(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[postprocess]\nenabled = false\n[server]\nenabled = true\nbind = "127.0.0.1"\n', encoding="utf-8")
+    config = load_config(path)
+    assert config.postprocess == PostprocessConfig(enabled=False)
+    assert config.server == ServerConfig(enabled=True, port=8765, bind="127.0.0.1")
+
+
 @pytest.mark.parametrize(
     "line",
     ['hotke = "ctrl_r"', 'hotkey = "ctrl"', 'hotkey = "esc"', 'hotkey = "nope"', "tap_threshold_ms = true",
      'provider = "gpu"', 'sounds = "yes"', "overlay = 1", "overlay = true", 'overlay = "orb"','postprocess = "on"',
      '[postprocess]\nenable = true', '[postprocess]\nenabled = "yes"', '[postprocess]\nreasoning_effort = "medium"',
      "[postprocess]\ntimeout_s = 0", "[postprocess]\ntimeout_s = true", "[postprocess]\ntimeout_s = 600",
-     '[postprocess]\nmodel = ""', '[postprocess]\nendpoint = "api.z.ai/v4"', "[postprocess]\nextra_instructions = 3"],
+     '[postprocess]\nmodel = ""', '[postprocess]\nendpoint = "api.z.ai/v4"', "[postprocess]\nextra_instructions = 3",
+     'server = "on"', "[server]\nenable = true", '[server]\nenabled = "yes"', "[server]\nport = 0",
+     "[server]\nport = 70000", '[server]\nport = "8765"', '[server]\nbind = "localhost"', "[server]\nbind = 1",
+     '[server]\nbind = "::"'],
 )
 def test_invalid_settings_are_rejected(tmp_path, line):
     path = tmp_path / "config.toml"
