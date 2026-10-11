@@ -447,7 +447,7 @@ class Tray:
                 pystray.MenuItem("Server for Mac", lambda: self._toggle_server(), checked=lambda item: server.running),
                 pystray.MenuItem(
                     "Copy Mac connection info",
-                    lambda: threading.Thread(target=self._copy_connection_info, name="connection-info").start(),
+                    lambda: threading.Thread(target=self._copy_connection_info, name="connection-info", daemon=True).start(),
                     enabled=lambda item: server.running,
                 ),
                 pystray.Menu.SEPARATOR,

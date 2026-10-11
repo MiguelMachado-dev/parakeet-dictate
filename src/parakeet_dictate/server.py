@@ -103,9 +103,11 @@ class DictationServer:
         log.info("server for Mac stopped")
 
     def connection_info(self) -> str | None:
-        """The URL and the token, one per line, or None when this PC has no address on the local network."""
+        """The URL and the token, one per line, or None when this PC has no address on the local network
+        or the server stopped meanwhile."""
         address = self._config.bind if self._config.bind != "0.0.0.0" else lan_ipv4()
-        return f"http://{address}:{self.port}\n{self.token}" if address else None
+        httpd = self._httpd
+        return f"http://{address}:{httpd.server_address[1]}\n{self.token}" if address and httpd else None
 
     def authorized(self, header: str) -> bool:
         return hmac.compare_digest(header.encode(), f"Bearer {self.token}".encode())
