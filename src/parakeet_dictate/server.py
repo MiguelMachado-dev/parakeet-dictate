@@ -148,7 +148,8 @@ class DictationServer:
 
 
 class _HttpServer(ThreadingHTTPServer):
-    # HTTPServer sets SO_REUSEADDR, which on Windows lets a second socket bind a port already in use.
+    # HTTPServer sets SO_REUSEADDR. On Windows two sockets that both set it share the port, so a port held
+    # by another such server would bind without error and the two would split the connections.
     allow_reuse_address = False
     daemon_threads = True
 
@@ -223,11 +224,10 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
         metrics = metrics or {}
+        shown = lambda key, digits: f"{metrics[key]:.{digits}f}" if key in metrics else "-"
         log.info(
             "%s %s -> %d, audio %s s, ASR %s ms, polish %s ms",
-            self.command, self._path(), status,
-            *(f"{metrics[key]:.{digits}f}" if key in metrics else "-" for key, digits in
-              (("audio_s", 1), ("asr_ms", 0), ("polish_ms", 0))),
+            self.command, self._path(), status, shown("audio_s", 1), shown("asr_ms", 0), shown("polish_ms", 0),
         )
 
     def log_request(self, code: object = "-", size: object = "-") -> None:

@@ -201,6 +201,8 @@ def test_the_server_item_starts_and_stops_the_server_and_saves_the_choice(tmp_pa
 def test_a_port_in_use_leaves_the_server_off_with_the_error_cue(tmp_path):
     cues = FakeCues()
     with socket.socket() as blocker:
+        # As another Python HTTPServer would hold it: on Windows, two sockets that both set SO_REUSEADDR share a port.
+        blocker.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         blocker.bind(("127.0.0.1", 0))
         blocker.listen()
         server = local_server(tmp_path, blocker.getsockname()[1])
