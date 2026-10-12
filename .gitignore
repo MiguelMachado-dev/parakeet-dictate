@@ -10,3 +10,5 @@ tray_choices.json.tmp
 server_token.txt
 server_token.txt.tmp
 previews/
+mac/.build/
+mac/build/
