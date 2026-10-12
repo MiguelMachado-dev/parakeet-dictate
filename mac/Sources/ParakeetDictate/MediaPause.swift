@@ -42,9 +42,9 @@ final class MediaPause {
         }
         let current = generation
         let due = DispatchTime.now() + OverlayTiming.showDelay
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let player = Self.playingApp()
-            DispatchQueue.main.asyncAfter(deadline: due) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: due) {
                 MainActor.assumeIsolated { self?.pause(player, generation: current) }
             }
         }
