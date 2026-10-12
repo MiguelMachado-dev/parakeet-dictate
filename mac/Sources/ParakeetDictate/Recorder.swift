@@ -1,5 +1,6 @@
 import AVFoundation
 import DictateCore
+import QuartzCore
 
 struct RecorderError: Error, CustomStringConvertible {
     let description: String
@@ -23,14 +24,14 @@ final class Recorder: @unchecked Sendable {
     /// its stream actually runs. Kept after the recording stops: the overlay fades out from those levels.
     private var meter: LevelMeter?
 
-    /// The current recording's levels and spectrum, from any thread.
-    func levels() -> (levels: [Float], spectrum: [Float]) {
+    /// The current recording's levels and spectrum as of `now` (CACurrentMediaTime), from any thread.
+    func levels(at now: Double) -> (levels: [Float], spectrum: [Float]) {
         guard let meter = lock.withLock({ meter }) else {
             return (
                 [Float](repeating: 0, count: LevelMeter.levelHistory), [Float](repeating: 0, count: LevelMeter.spectrumBands)
             )
         }
-        return meter.snapshot()
+        return meter.snapshot(at: now)
     }
 
     func start() throws {
@@ -52,7 +53,7 @@ final class Recorder: @unchecked Sendable {
                 return
             }
             let samples = UnsafeBufferPointer(start: channels[0], count: Int(buffer.frameLength))
-            meter.feed(samples)
+            meter.feed(samples, at: CACurrentMediaTime())
             let copy = Array(samples)
             self.lock.withLock { self.chunks.append(copy) }
         }
@@ -75,13 +76,14 @@ final class Recorder: @unchecked Sendable {
         self.engine = nil
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
-        let samples = lock.withLock { () -> [Float] in
+        let (samples, buffers) = lock.withLock { () -> ([Float], Int) in
             defer { chunks = [] }
-            return chunks.flatMap { $0 }
+            return (chunks.flatMap { $0 }, chunks.count)
         }
         guard !samples.isEmpty else {
             throw RecorderError("no audio from \(deviceName)")
         }
+        Log.info("\(deviceName) delivered audio every \(Int(Double(samples.count) / Double(buffers) / rate * 1000)) ms")
         return try Resampler.resample(samples, from: rate)
     }
 

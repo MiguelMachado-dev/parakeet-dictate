@@ -8,7 +8,7 @@ import QuartzCore
 /// Its state is split between its queue and the main thread, as marked below.
 final class Overlay: @unchecked Sendable {
     private let queue = DispatchQueue(label: "overlay", qos: .userInteractive)
-    private let levels: @Sendable () -> (levels: [Float], spectrum: [Float])
+    private let levels: @Sendable (Double) -> (levels: [Float], spectrum: [Float])
     private let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
 
     // Owned by the queue.
@@ -24,11 +24,11 @@ final class Overlay: @unchecked Sendable {
     private let canvas: CALayer
     private var lastPlacement: Placement?
 
-    /// `levels` returns the current recording's meter; the overlay's queue calls it each frame.
+    /// `levels` returns the current recording's meter at a CACurrentMediaTime; the overlay's queue calls it each frame.
     @MainActor
     init(
         style: OverlayStyle?, position: OverlayPosition,
-        levels: @escaping @Sendable () -> (levels: [Float], spectrum: [Float])
+        levels: @escaping @Sendable (Double) -> (levels: [Float], spectrum: [Float])
     ) {
         self.style = style
         self.position = position
@@ -88,7 +88,7 @@ final class Overlay: @unchecked Sendable {
 
     private func tick() {
         let now = CACurrentMediaTime()
-        let (levels, spectrum) = self.levels()
+        let (levels, spectrum) = self.levels(now)
         guard let style, let (frame, placement) = scene.frame(at: now, levels: levels, spectrum: spectrum) else {
             DispatchQueue.main.async { self.hide() }
             deadline = nil

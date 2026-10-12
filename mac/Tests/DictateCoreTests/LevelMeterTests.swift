@@ -87,3 +87,22 @@ private func tone(_ db: Double, _ seconds: Double, hz: Double = 440, rate: Doubl
     let spectrum = meter.snapshot().spectrum
     #expect(zip(spectrum, python).allSatisfy { abs($0 - $1) < 0.002 }, "\(spectrum)")
 }
+
+@Test func aBlockPlaysOutAtItsRealPace() {
+    let paced = LevelMeter(rate: rate)
+    let newest = LevelMeter(rate: rate)
+    paced.feed([Float](repeating: 0, count: Int(rate)), at: -1)
+    newest.feed([Float](repeating: 0, count: Int(rate)))
+    // Five hops arrive at once at t = 0.
+    let block = tone(-20, 5 * LevelMeter.hopSeconds)
+    paced.feed(block, at: 0)
+    newest.feed(block)
+    #expect(paced.snapshot(at: 0).levels.last == 0)
+    #expect(paced.snapshot(at: 0.11) == newest.snapshot())
+    #expect(paced.snapshot(at: 10) == newest.snapshot())
+    // Halfway through a hop, the levels blend the hops on either side.
+    let one = paced.snapshot(at: LevelMeter.hopSeconds).levels.last!
+    let two = paced.snapshot(at: 2 * LevelMeter.hopSeconds).levels.last!
+    let between = paced.snapshot(at: 1.5 * LevelMeter.hopSeconds).levels.last!
+    #expect(one > 0 && two > one && abs(between - (one + two) / 2) < 1e-6)
+}

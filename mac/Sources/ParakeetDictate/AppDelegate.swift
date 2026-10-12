@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         dictation = Dictation(settings: settings)
         let recorder = dictation.recorder
-        overlay = Overlay(style: settings.overlay, position: settings.overlayPosition) { recorder.levels() }
+        overlay = Overlay(style: settings.overlay, position: settings.overlayPosition) { recorder.levels(at: $0) }
         dictation.onOverlayCommand = { [weak self] command in self?.overlay.notify(command) }
         dictation.onStateChange = { [weak self] _ in self?.updateIcon() }
         dictation.onLocalStatus = { [weak self] _ in self?.updateIcon() }
