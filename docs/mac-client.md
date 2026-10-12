@@ -1,5 +1,7 @@
 # Mac client brief
 
+The app this brief asked for is now in [mac/](../mac/README.md). It also transcribes on the Mac itself, so it keeps the reducer's `Polishing` state for that mode; the HTTP contract below is unchanged.
+
 You are building a native macOS menu-bar app that dictates through a Windows PC on the same network. The PC runs Parakeet Dictate, the Python app in this repository. It transcribes speech with NVIDIA Parakeet and cleans the transcript with GLM. Your app owns the hotkey, the recording, the overlay, and the paste. The PC only turns audio into text.
 
 This document is self-contained. Read it in full before writing code. File references point into this repository, which is cloned on the Mac; the Windows code is the reference behavior to replicate. Paths are relative to the repository root.

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>dev.miguelmachado.parakeet-dictate</string>
+	<key>CFBundleName</key>
+	<string>Parakeet Dictate</string>
+	<key>CFBundleDisplayName</key>
+	<string>Parakeet Dictate</string>
+	<key>CFBundleExecutable</key>
+	<string>ParakeetDictate</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Parakeet Dictate records your voice while you hold the hotkey, to turn it into text.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Parakeet Dictate sends your dictation to the PC on your network when you choose to transcribe on the PC.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
