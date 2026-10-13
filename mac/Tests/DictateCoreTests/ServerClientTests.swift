@@ -45,7 +45,16 @@ import Testing
 
         """)
     let noFlag = String(decoding: ServerClient.multipart(wav: Data(), postprocess: nil, boundary: "b"), as: UTF8.self)
-    #expect(!noFlag.contains("postprocess"))
+    #expect(!noFlag.contains("postprocess") && !noFlag.contains("instructions"))
+    let rule = ServerClient.multipart(wav: Data(), postprocess: true, instructions: "Translate to English.", boundary: "b")
+    #expect(String(decoding: rule, as: UTF8.self).hasSuffix("""
+        --b\r
+        Content-Disposition: form-data; name="instructions"\r
+        \r
+        Translate to English.\r
+        --b--\r
+
+        """))
 }
 
 private func server(_ handler: @escaping (StubProtocol.Seen) -> StubProtocol.Answer) -> (ServerClient, String) {

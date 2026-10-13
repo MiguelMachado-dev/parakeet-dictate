@@ -55,6 +55,7 @@ Open **Settings…** from the menu.
 | Thinking | Anthropic only. Off (default) is the fastest: the model writes the cleaned text without reasoning first. On, it reasons first, for as long as the effort asks. |
 | Effort | Anthropic only: Low (default), Medium, High, Extra high, or Max. With thinking off the API takes High or below, so the higher two show only with thinking on. |
 | Extra instructions | Appended to the prompt, for names and jargon, as in `config.toml`. |
+| App rules | Opens **App Rules…**, also in the menu. A Mac addition, below. |
 
 Claude Sonnet 5.5 turns thinking off with `between_tools`, the other models with `disabled`; a typed model that cannot turn it off, such as Claude Opus 5.5, fails every request with thinking off, and the log says why. Requests to Claude Sonnet 5.5 also turn on the API's server-side fallback, which re-runs a declined request on Claude Sonnet 5. Claude Haiku 5.5 has none, so a declined request pastes the raw transcript, like any other failure.
 
@@ -68,6 +69,12 @@ defaults write dev.miguelmachado.parakeet-dictate glmEndpoint https://api.z.ai/a
 defaults write dev.miguelmachado.parakeet-dictate claudeTimeout -float 8
 ```
 
+### App rules
+
+A rule gives the post-processing model instructions for dictations into certain apps, such as `Translate the transcript to English.` for Slack. Add one with **+**, from a preset or blank, then pick its apps from the ones running or from Applications. The rules apply when one of their apps is in front as a dictation ends; several rules for the same app add up, in list order.
+
+The model still cleans up the transcript, then follows the rule, even where it asks to translate or restyle. A rule post-processes even with **Post-process** off. On This Mac it goes to the chosen provider and needs its key; on the PC, the PC's GLM follows it, and the PC's app must have this version, or it ignores the rule and returns the text in the language spoken. A reply much longer than what was said is rejected as before, and the raw transcript is pasted.
+
 ## Check from the terminal
 
 The app's binary has four checks that use its real code and settings, without the menu bar:
@@ -80,7 +87,7 @@ APP="mac/build/Parakeet Dictate.app/Contents/MacOS/ParakeetDictate"
 "$APP" --check-media    # pauses what is playing for 1.5 s, then plays it again
 ```
 
-`PARAKEET_SERVER="<url> <token>"` points `--check-server` at another server. `mac/scripts/fake_pc_server.py` runs the Windows app's server code on the Mac with a stand-in model and GLM, to check the client without the PC; its docstring has the command.
+`PARAKEET_SERVER="<url> <token>"` points `--check-server` at another server. `PARAKEET_INSTRUCTIONS="Translate the transcript to English."` gives `--check-polish` and `--check-server` a rule's instructions. `mac/scripts/fake_pc_server.py` runs the Windows app's server code on the Mac with a stand-in model and GLM, to check the client without the PC; its docstring has the command.
 
 ## Develop
 

@@ -48,6 +48,7 @@ Request:
 - `Content-Type: multipart/form-data; boundary=...`, with a `Content-Length` header. Chunked uploads are not supported and get `411`.
 - Field `file`, required: a WAV file of 16-bit PCM samples. Mono or stereo; stereo is averaged to mono. Any sample rate; the server resamples. Send 16 kHz mono 16-bit, which is what the model uses and the smallest upload.
 - Field `postprocess`, optional: exactly `true` or `false`. Omitted means the Windows tray choice. `true` on a PC with no GLM key returns the raw text with `polished: false`.
+- Field `instructions`, optional: UTF-8 text that GLM follows for this dictation only, after its usual cleanup rules and taking precedence over them, such as `Translate to English.` The Mac sends the rules set for the app the text goes to. It only matters when the text is post-processed, so send `postprocess=true` with it. An older PC ignores it.
 - Fields `model`, `language`, `response_format` and `temperature` are accepted and ignored.
 
 Responses:
@@ -57,7 +58,7 @@ Responses:
 | `200` | Transcribed | `{"text": "<final text>", "raw": "<Parakeet transcript>", "polished": true}` |
 | `200` | GLM failed, or gave no reply within its timeout (8 s by default) | `{"text": "<raw>", "raw": "<raw>", "polished": false}` |
 | `200` | No speech, or audio under 0.1 s | `{"text": "", "raw": "", "polished": false}` |
-| `400` | The file is not a 16-bit PCM WAV (24-bit, 32-bit float, not a WAV), no `file` field, not multipart, or `postprocess` is neither `true` nor `false` | error naming the expected format |
+| `400` | The file is not a 16-bit PCM WAV (24-bit, 32-bit float, not a WAV), no `file` field, not multipart, `postprocess` is neither `true` nor `false`, or `instructions` is not UTF-8 | error naming the expected format |
 | `401` | Missing or wrong token | error |
 | `404` | Unknown path | error |
 | `411` | No `Content-Length` | error |

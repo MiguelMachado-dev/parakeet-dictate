@@ -90,14 +90,15 @@ public final class ServerClient: Sendable {
         return health.postprocess
     }
 
-    public func transcribe(wav: Data, postprocess: Bool?) async throws -> TranscriptionReply {
+    /// `instructions` need a PC updated for them; an older one ignores them.
+    public func transcribe(wav: Data, postprocess: Bool?, instructions: String = "") async throws -> TranscriptionReply {
         let boundary = "parakeet-\(UUID().uuidString)"
         var request = URLRequest(url: connection.baseURL.appendingPathComponent("v1/audio/transcriptions"))
         request.httpMethod = "POST"
         request.timeoutInterval = Self.requestTimeout
         authorize(&request)
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        let body = Self.multipart(wav: wav, postprocess: postprocess, boundary: boundary)
+        let body = Self.multipart(wav: wav, postprocess: postprocess, instructions: instructions, boundary: boundary)
         let data = try await send(request, body: body)
         guard let reply = try? JSONDecoder().decode(TranscriptionReply.self, from: data) else {
             throw ServerError.badReply
@@ -105,7 +106,7 @@ public final class ServerClient: Sendable {
         return reply
     }
 
-    public static func multipart(wav: Data, postprocess: Bool?, boundary: String) -> Data {
+    public static func multipart(wav: Data, postprocess: Bool?, instructions: String = "", boundary: String) -> Data {
         var body = Data()
         body.append(Data("--\(boundary)\r\n".utf8))
         body.append(Data("Content-Disposition: form-data; name=\"file\"; filename=\"dictation.wav\"\r\n".utf8))
@@ -116,6 +117,11 @@ public final class ServerClient: Sendable {
             body.append(Data("--\(boundary)\r\n".utf8))
             body.append(Data("Content-Disposition: form-data; name=\"postprocess\"\r\n\r\n".utf8))
             body.append(Data("\(postprocess)\r\n".utf8))
+        }
+        if !instructions.isEmpty {
+            body.append(Data("--\(boundary)\r\n".utf8))
+            body.append(Data("Content-Disposition: form-data; name=\"instructions\"\r\n\r\n".utf8))
+            body.append(Data("\(instructions)\r\n".utf8))
         }
         body.append(Data("--\(boundary)--\r\n".utf8))
         return body

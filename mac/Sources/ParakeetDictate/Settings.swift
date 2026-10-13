@@ -175,6 +175,10 @@ final class Settings: ObservableObject {
     @Published var extraInstructions: String {
         didSet { save(extraInstructions, "extraInstructions") }
     }
+    /// Saved without calling onChange: nothing needs rebuilding, since each dictation reads them as it ends.
+    @Published var rules: [AppRule] {
+        didSet { defaults.set(try? JSONEncoder().encode(rules), forKey: "appRules") }
+    }
     @Published var serverToken: String {
         didSet { Keychain.set(serverToken, for: "server-token"); onChange?() }
     }
@@ -211,6 +215,7 @@ final class Settings: ObservableObject {
         // didSet does not run here, so a `defaults write` past high with thinking off is clamped like the toggle does.
         claudeEffort = thinking || effort.allowsThinkingOff ? effort : .high
         extraInstructions = defaults.string(forKey: "extraInstructions") ?? ""
+        rules = defaults.data(forKey: "appRules").flatMap { try? JSONDecoder().decode([AppRule].self, from: $0) } ?? []
         serverToken = Keychain.get("server-token") ?? ""
         zaiAPIKey = Keychain.get("zai-api-key") ?? ""
         anthropicAPIKey = Keychain.get("anthropic-api-key") ?? ""

@@ -4,7 +4,7 @@ import httpx2
 import pytest
 
 from parakeet_dictate.config import PostprocessConfig
-from parakeet_dictate.polish import GlmClient, PolishError
+from parakeet_dictate.polish import INSTRUCTIONS_PROMPT, GlmClient, PolishError
 
 RAW = "um so I think we should uh push the release"
 CONFIG = PostprocessConfig(reasoning_effort="high", extra_instructions="Names: João.")
@@ -49,6 +49,21 @@ def test_request_carries_auth_thinking_effort_and_the_tagged_transcript():
     system, user = body["messages"]
     assert system["role"] == "system" and system["content"].endswith("\n\nNames: João.")
     assert user == {"role": "user", "content": f"<transcript>{RAW}</transcript>"}
+
+
+def test_instructions_follow_the_system_prompt_for_one_dictation_only():
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content)["messages"][0]["content"])
+        return reply("I think we should push the release.")
+
+    glm = client(handler)
+    glm.polish(RAW, "  Translate to English.\n")
+    glm.polish(RAW)
+    with_rule, without = seen
+    assert with_rule == f"{without}\n\n{INSTRUCTIONS_PROMPT}\n\nTranslate to English."
+    assert without.endswith("\n\nNames: João.")
 
 
 @pytest.mark.parametrize("content, expected", [

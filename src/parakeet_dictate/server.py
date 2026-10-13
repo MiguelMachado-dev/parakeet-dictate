@@ -125,7 +125,7 @@ class DictationServer:
             self._polisher.submit(self._glm.preconnect)
         return {"status": "ok", "postprocess": on}
 
-    def transcribe(self, audio: Audio, postprocess: bool | None, metrics: dict[str, float]) -> dict:
+    def transcribe(self, audio: Audio, postprocess: bool | None, instructions: str, metrics: dict[str, float]) -> dict:
         t0 = time.perf_counter()
         raw = self._model.transcribe(audio)
         metrics["asr_ms"] = (time.perf_counter() - t0) * 1000
@@ -133,7 +133,7 @@ class DictationServer:
         if not raw or not polish:
             return {"text": raw, "raw": raw, "polished": False}
         t0 = time.perf_counter()
-        future = self._polisher.submit(self._glm.polish, raw)
+        future = self._polisher.submit(self._glm.polish, raw, instructions)
         try:
             text = future.result(timeout=self._timeout_s)
         except TimeoutError:
@@ -205,10 +205,11 @@ class _Handler(BaseHTTPRequestHandler):
                 raise BadRequest("the form has no field named file")
             audio = parse_wav(fields["file"])
             postprocess = parse_flag(fields.get("postprocess"))
+            instructions = parse_instructions(fields.get("instructions"))
         except BadRequest as e:
             return self._error(400, str(e))
         metrics = {"audio_s": audio.seconds}
-        self._reply(200, app.transcribe(audio, postprocess, metrics), metrics)
+        self._reply(200, app.transcribe(audio, postprocess, instructions, metrics), metrics)
 
     def _path(self) -> str:
         return urlsplit(self.path).path
@@ -275,6 +276,13 @@ def parse_flag(value: bytes | None) -> bool | None:
         case b"false":
             return False
     raise BadRequest(f"postprocess must be true or false; got {value[:20]!r}")
+
+
+def parse_instructions(value: bytes | None) -> str:
+    try:
+        return (value or b"").decode("utf-8").strip()
+    except UnicodeDecodeError:
+        raise BadRequest("instructions must be UTF-8 text") from None
 
 
 def read_token(path: Path) -> str:

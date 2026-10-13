@@ -124,3 +124,17 @@ func emptyReplyIsRejected(content: String) async {
 @Test func preconnectFailureIsSilent() async {
     await client { _ in .fail(.cannotConnectToHost) }.0.preconnect()
 }
+
+@Test func instructionsFollowTheSystemPromptForOneDictationOnly() async throws {
+    let (glm, host) = client { _ in reply("I think we should push the release.") }
+    _ = try await glm.polish(raw, instructions: "  Translate to English.\n")
+    _ = try await glm.polish(raw)
+    let systems = try StubProtocol.requests(to: host).map { seen in
+        let body = try #require(try JSONSerialization.jsonObject(with: seen.body) as? [String: Any])
+        let messages = try #require(body["messages"] as? [[String: String]])
+        return try #require(messages[0]["content"])
+    }
+    try #require(systems.count == 2)
+    #expect(systems[0] == "\(systems[1])\n\n\(polishInstructionsPrompt)\n\nTranslate to English.")
+    #expect(systems[1].hasSuffix("\n\nNames: João."))
+}

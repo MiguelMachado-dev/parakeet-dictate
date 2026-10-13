@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var overlay: Overlay!
     private var statusItem: NSStatusItem!
     private var settingsWindow: NSWindow?
+    private var rulesWindow: NSWindow?
     private var permissionPoll: Timer?
     private var healthTimer: Timer?
 
@@ -257,6 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item("Grant Microphone Access…", #selector(openMicrophone)))
         }
         menu.addItem(item("Settings…", #selector(showSettings), key: ","))
+        menu.addItem(item("App Rules…", #selector(showRules)))
         menu.addItem(item("Open Log", #selector(openLog)))
         menu.addItem(.separator())
         menu.addItem(item("Quit Parakeet Dictate", #selector(quit), key: "q"))
@@ -335,9 +337,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func showSettings() {
         if settingsWindow == nil {
-            let view = SettingsView(settings: settings, test: ConnectionTest()) { [weak self] in
-                await self?.testConnection() ?? ""
-            }
+            let view = SettingsView(
+                settings: settings, test: ConnectionTest(),
+                testConnection: { [weak self] in await self?.testConnection() ?? "" },
+                showRules: { [weak self] in self?.showRules() }
+            )
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
             window.title = "Parakeet Dictate Settings"
             window.styleMask = [.titled, .closable]
@@ -347,6 +351,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    @objc func showRules() {
+        if rulesWindow == nil {
+            let editor = RuleEditor()
+            editor.selection = settings.rules.first?.id
+            let window = NSWindow(contentViewController: NSHostingController(rootView: RulesView(settings: settings, editor: editor)))
+            window.title = "App Rules"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            rulesWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        rulesWindow?.makeKeyAndOrderFront(nil)
     }
 
     private func testConnection() async -> String {

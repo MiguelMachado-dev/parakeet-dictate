@@ -73,6 +73,19 @@ private func polishError(_ handler: @escaping (StubProtocol.Seen) -> StubProtoco
     #expect(body["messages"] as? [[String: String]] == [["role": "user", "content": "<transcript>\(raw)</transcript>"]])
 }
 
+@Test func claudeInstructionsFollowTheSystemPromptForOneDictationOnly() async throws {
+    let (claude, host) = client { _ in reply("I think we should push the release.") }
+    _ = try await claude.polish(raw, instructions: "  Translate to English.\n")
+    _ = try await claude.polish(raw)
+    let systems = try StubProtocol.requests(to: host).map { seen in
+        let body = try #require(try JSONSerialization.jsonObject(with: seen.body) as? [String: Any])
+        return try #require(body["system"] as? String)
+    }
+    try #require(systems.count == 2)
+    #expect(systems[0] == "\(systems[1])\n\n\(polishInstructionsPrompt)\n\nTranslate to English.")
+    #expect(systems[1].hasSuffix("\n\nNames: João."))
+}
+
 @Test func thinkingOffIsDisabledExceptOnSonnet() async throws {
     #expect(try await sentBody { _ in }.0["thinking"] as? [String: String] == ["type": "disabled"])
     let sonnet = try await sentBody { $0.model = ClaudeConfig.sonnet }.0

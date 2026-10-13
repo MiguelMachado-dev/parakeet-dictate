@@ -64,7 +64,9 @@ public actor ClaudeClient: Polisher {
         }
     }
 
-    public func polish(_ raw: String) async throws -> String {
+    /// `instructions` come from the user, for this dictation only.
+    public func polish(_ raw: String, instructions: String = "") async throws -> String {
+        let system = polishPrompt(systemPrompt, instructions: instructions)
         _ = pool.renewIfIdle()
         pool.touch()
         var request = URLRequest(url: config.endpoint)
@@ -77,7 +79,7 @@ public actor ClaudeClient: Polisher {
             "model": config.model,
             // Thinking counts toward this cap, so it is not sized to the reply. The timeout ends a long one first.
             "max_tokens": 16_000,
-            "system": systemPrompt,
+            "system": system,
             "messages": [["role": "user", "content": "<transcript>\(raw)</transcript>"]],
             "thinking": config.thinkingParameter,
             "output_config": ["effort": config.effort],

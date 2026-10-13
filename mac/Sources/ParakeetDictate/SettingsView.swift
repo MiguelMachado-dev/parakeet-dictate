@@ -13,6 +13,7 @@ struct SettingsView: View {
     @ObservedObject var settings: Settings
     @ObservedObject var test: ConnectionTest
     let testConnection: () async -> String
+    let showRules: () -> Void
 
     var body: some View {
         Form {
@@ -95,6 +96,23 @@ struct SettingsView: View {
             } footer: {
                 Text(postprocessingFooter).font(.caption).foregroundStyle(.secondary)
             }
+
+            Section {
+                HStack {
+                    Text(rulesSummary)
+                    Spacer()
+                    Button("Edit App Rules…") { showRules() }
+                }
+            } header: {
+                Text("App rules")
+            } footer: {
+                Text(
+                    "Instructions for GLM or Claude when you dictate into certain apps, such as translating to English "
+                        + "in Slack. A rule post-processes even with the toggle above off. On the PC, it needs the PC's app "
+                        + "updated, and the PC's GLM follows it."
+                )
+                .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .frame(width: 500)
@@ -109,6 +127,15 @@ struct SettingsView: View {
         case .anthropic:
             return "Claude removes fillers and fixes punctuation, with the key above. Thinking off is the fastest, "
                 + "and works at effort High or below. \(pc)"
+        }
+    }
+
+    private var rulesSummary: String {
+        let on = settings.rules.filter(\.enabled)
+        switch on.count {
+        case 0: return settings.rules.isEmpty ? "No rules" : "All rules off"
+        case 1: return on[0].name
+        default: return "\(on.count) rules on"
         }
     }
 

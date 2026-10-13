@@ -31,6 +31,8 @@ final class Dictation {
     private var nextRequestID = 1
     private var releasedAt = 0.0
     private var releasePoll: Timer?
+    /// What the rules for the app in front ask of the model, since the text goes to that app. "" for no rules.
+    private var instructions = ""
 
     var onStateChange: ((State) -> Void)?
     /// What the overlay should show after a transition, if it changes.
@@ -102,8 +104,28 @@ final class Dictation {
         }
     }
 
+    /// A rule post-processes even with post-processing off.
+    private var postprocess: Bool {
+        settings.postprocess || !instructions.isEmpty
+    }
+
     private var polishOn: Bool {
-        settings.engine == .local && settings.postprocess && polisher != nil
+        settings.engine == .local && postprocess && polisher != nil
+    }
+
+    /// Reads the rules for the app in front when recording starts, to warm the model, and again when it stops,
+    /// since a hands-free dictation can switch apps meanwhile.
+    private func readRules(log: Bool) {
+        let app = NSWorkspace.shared.frontmostApplication
+        let rules = settings.rules.matching(app?.bundleIdentifier)
+        instructions = combinedInstructions(rules)
+        guard log, !rules.isEmpty else {
+            return
+        }
+        Log.info("rules for \(app?.localizedName ?? "the app in front"): \(rules.map(\.name).joined(separator: ", "))")
+        if settings.engine == .local && polisher == nil {
+            Log.warning("the rules need a \(settings.polishProvider.keyName) API key in Settings; pasting the raw transcript")
+        }
     }
 
     func post(_ event: Event) {
@@ -122,7 +144,7 @@ final class Dictation {
         if next != previous, var command = overlayCommand(previous: previous, state: next, event: event, effects: effects) {
             // The Mac cannot tell the PC's transcription from its post-processing, so the whole request
             // gets the post-processing look when it is asked for.
-            if command == .show(.transcribing), settings.engine == .server, settings.postprocess {
+            if command == .show(.transcribing), settings.engine == .server, postprocess {
                 command = .show(.polishing)
             }
             onOverlayCommand?(command)
@@ -140,6 +162,7 @@ final class Dictation {
     private func execute(_ effect: Effect) {
         switch effect {
         case .startRecording:
+            readRules(log: false)
             do {
                 try recorder.start()
                 Log.info("recording from \(recorder.deviceName)")
@@ -154,6 +177,7 @@ final class Dictation {
                 Task { await polisher.preconnect() }
             }
         case .stopAndTranscribe:
+            readRules(log: true)
             do {
                 transcribe(try recorder.stop())
             } catch {
@@ -184,7 +208,8 @@ final class Dictation {
         let current = generation
         let engine = settings.engine
         let server = server
-        let postprocess = settings.postprocess
+        let postprocess = self.postprocess
+        let instructions = self.instructions
         let started = Date()
         transcription = Task {
             do {
@@ -193,7 +218,8 @@ final class Dictation {
                 case .local:
                     text = try await local.transcribe(samples)
                 case .server:
-                    text = try await self.transcribeOnServer(samples, server: server, postprocess: postprocess)
+                    text = try await self.transcribeOnServer(
+                        samples, server: server, postprocess: postprocess, instructions: instructions)
                 }
                 guard current == generation else {
                     return
@@ -215,7 +241,9 @@ final class Dictation {
         }
     }
 
-    private func transcribeOnServer(_ samples: [Float], server: ServerClient?, postprocess: Bool) async throws -> String {
+    private func transcribeOnServer(
+        _ samples: [Float], server: ServerClient?, postprocess: Bool, instructions: String
+    ) async throws -> String {
         guard let server else {
             throw ServerError.unreachable("no PC address and token in Settings")
         }
@@ -224,7 +252,7 @@ final class Dictation {
         }
         do {
             let wav = Wav.encode(samples, rate: Int(Resampler.modelRate))
-            let reply = try await server.transcribe(wav: wav, postprocess: postprocess)
+            let reply = try await server.transcribe(wav: wav, postprocess: postprocess, instructions: instructions)
             if server === self.server, case .failed = serverStatus {
                 checkServer()
             }
@@ -245,9 +273,10 @@ final class Dictation {
             post(.polishFailed(requestID: requestID, reason: "no \(settings.polishProvider.keyName) API key"))
             return
         }
+        let instructions = self.instructions
         Task {
             do {
-                post(.polished(requestID: requestID, text: try await polisher.polish(text)))
+                post(.polished(requestID: requestID, text: try await polisher.polish(text, instructions: instructions)))
             } catch {
                 post(.polishFailed(requestID: requestID, reason: "\(error)"))
             }

@@ -79,7 +79,18 @@ Verificado no macOS 27.0.1 com o `--check-media` e um player de teste: um atalho
 - [ ] Com tudo pausado, ditar não inicia nada.
 - [ ] Quit durante uma gravação retoma o que pausou.
 
-## 7. Depois
+## 7. Regras por app
+
+Verificado em 2026-10-12 com o `--check-glm` e a chave da Z.ai: com `Translate the transcript to English.`, frases em português saem em inglês, em geral já sem a parte corrigida ("sexta, não, quinta" vira "Thursday"); sem regra, nada muda. Pelo PC, com o `fake_pc_server.py`: o campo `instructions` chega ao GLM do servidor.
+
+- [ ] **App Rules…** no menu: **+** > Translate to English, **Add App** > Slack.
+- [ ] Ditar em português no Slack: cola em inglês. No log, a linha `rules for Slack: Translate to English`.
+- [ ] Ditar em outro app: cola em português, como antes.
+- [ ] Com **Post-process** desligado, a regra ainda traduz no Slack.
+- [ ] Com o provedor Anthropic (Claude) em Settings, a mesma tradução no Slack.
+- [ ] Pelo PC, depois de atualizar e reiniciar o app do Windows: a mesma tradução no Slack.
+
+## 8. Depois
 
 - [ ] Instalar em `/Applications` com `mac/scripts/build-app.sh --install` e ligar **Open at Login** no menu.
 - [ ] Comparar o Parakeet Ultra (`AsrModelVersion.ultra` no FluidAudio, mesmo tamanho, mais preciso segundo o FluidAudio) com o v3 em português.

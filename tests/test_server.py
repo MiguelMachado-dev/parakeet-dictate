@@ -44,13 +44,15 @@ class FakeGlm:
     def __init__(self, reply: str = POLISHED, error: Exception | None = None, seconds: float = 0.0) -> None:
         self.reply, self.error, self.seconds = reply, error, seconds
         self.polished: list[str] = []
+        self.instructions: list[str] = []
         self.preconnected = threading.Event()
 
     def preconnect(self) -> None:
         self.preconnected.set()
 
-    def polish(self, raw: str) -> str:
+    def polish(self, raw: str, instructions: str = "") -> str:
         self.polished.append(raw)
+        self.instructions.append(instructions)
         time.sleep(self.seconds)
         if self.error:
             raise self.error
@@ -183,6 +185,26 @@ def test_postprocess_defaults_to_the_tray_choice(serve):
     glm = FakeGlm()
     assert post(serve(glm=glm, postprocess=False)).json()["polished"] is False
     assert post(serve(glm=glm, postprocess=False), postprocess="true").json()["polished"] is True
+
+
+def test_instructions_reach_glm(serve):
+    glm = FakeGlm()
+    server = serve(glm=glm)
+    assert post(server, instructions=" Translate to English. ").json()["polished"] is True
+    assert post(server).json()["polished"] is True
+    assert glm.instructions == ["Translate to English.", ""]
+
+
+def test_instructions_that_are_not_utf8_get_400(serve):
+    glm = FakeGlm()
+    server = serve(glm=glm)
+    response = httpx2.post(
+        url(server, "/v1/audio/transcriptions"),
+        files={"file": ("speech.wav", SPEECH, "audio/wav"), "instructions": (None, b"\xff\xfe")},
+        headers=auth(server, None), timeout=10,
+    )
+    assert response.status_code == 400 and "UTF-8" in response.json()["error"]["message"]
+    assert glm.polished == []
 
 
 @pytest.mark.parametrize(

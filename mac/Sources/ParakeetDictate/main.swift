@@ -7,7 +7,9 @@ import DictateCore
 // `--check-polish` post-processes with the provider chosen in Settings; `--check-glm` is its old name.
 // `--check-media` pauses and resumes what is playing, the way a dictation does.
 // PARAKEET_SERVER="<url> <token>" points --check-server somewhere other than the PC in Settings.
+// PARAKEET_INSTRUCTIONS="Translate to English." gives --check-polish and --check-server an app rule's instructions.
 let arguments = Array(CommandLine.arguments.dropFirst())
+let instructions = ProcessInfo.processInfo.environment["PARAKEET_INSTRUCTIONS"] ?? ""
 
 func samples(_ path: String) throws -> [Float] {
     let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
@@ -60,7 +62,7 @@ case "--check-server":
             let t = Date()
             let wav = Wav.encode(try samples(path), rate: 16_000)
             for postprocess in [nil, true, false] as [Bool?] {
-                let reply = try await client.transcribe(wav: wav, postprocess: postprocess)
+                let reply = try await client.transcribe(wav: wav, postprocess: postprocess, instructions: instructions)
                 print("\(path) postprocess \(postprocess.map(String.init) ?? "omitted") in \(elapsed(since: t)): "
                     + "polished \(reply.polished): \(reply.text)")
             }
@@ -80,7 +82,7 @@ case "--check-polish", "--check-glm":
         await polisher.preconnect()
         print("pre-connect in \(elapsed(since: t))")
         let p = Date()
-        let text = try await polisher.polish(arguments.dropFirst().joined(separator: " "))
+        let text = try await polisher.polish(arguments.dropFirst().joined(separator: " "), instructions: instructions)
         print("polished in \(elapsed(since: p)): \(text)")
     }
 case "--check-media":

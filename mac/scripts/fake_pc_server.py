@@ -4,7 +4,8 @@ so the Mac client can be checked against the real request handling without the P
     uv run --no-project --python 3.12 --with numpy --with httpx2 --with pillow \
         python mac/scripts/fake_pc_server.py
 
-The stand-in model replies with what it received ("16000 Hz, 6.6 s"); the stand-in GLM upper-cases it.
+The stand-in model replies with what it received ("16000 Hz, 6.6 s"); the stand-in GLM upper-cases it
+and appends any instructions in parentheses.
 It prints the two lines of "Copy Mac connection info" and serves until Ctrl+C.
 """
 
@@ -49,8 +50,8 @@ class ShoutingGlm:
     def preconnect(self) -> None:
         pass
 
-    def polish(self, raw: str) -> str:
-        return raw.upper()
+    def polish(self, raw: str, instructions: str = "") -> str:
+        return f"{raw.upper()} ({instructions})" if instructions else raw.upper()
 
 
 def main() -> None:

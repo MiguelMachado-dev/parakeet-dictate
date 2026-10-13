@@ -46,7 +46,9 @@ public actor GlmClient: Polisher {
         }
     }
 
-    public func polish(_ raw: String) async throws -> String {
+    /// `instructions` come from the user, for this dictation only.
+    public func polish(_ raw: String, instructions: String = "") async throws -> String {
+        let system = polishPrompt(systemPrompt, instructions: instructions)
         _ = pool.renewIfIdle()
         pool.touch()
         var request = URLRequest(url: config.endpoint)
@@ -57,7 +59,7 @@ public actor GlmClient: Polisher {
         let body: [String: Any] = [
             "model": config.model,
             "messages": [
-                ["role": "system", "content": systemPrompt],
+                ["role": "system", "content": system],
                 ["role": "user", "content": "<transcript>\(raw)</transcript>"],
             ],
             // GLM-5.3 cannot turn reasoning off; low effort keeps it to a few dozen tokens.
