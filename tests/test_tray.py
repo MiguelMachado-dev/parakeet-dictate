@@ -161,7 +161,7 @@ def test_the_overlay_menu_has_a_radio_item_per_style_and_off_that_switches_and_s
     assert len(windows.opened) == 1
     assert [item.text for item in tray.icon.menu.items if item.text] == [
         "Post-process with GLM (no ZAI_API_KEY)", "Overlay", "Server for Mac", "Copy Mac connection info", "- - - -",
-        "Open log", "Quit",
+        "Settings…", "Open log", "Quit",
     ]
 
 
@@ -228,14 +228,15 @@ def fake_main(tmp_path, monkeypatch, caplog) -> SimpleNamespace:
     arguments and what to do inside the tray loop once the model is ready."""
     tag = uuid.uuid4().hex
     monkeypatch.setattr(app, "setup_logging", lambda: None)
-    for name in ("MUTEX_NAME", "QUIT_EVENT_NAME", "LAUNCH_EVENT_NAME"):
+    for name in ("MUTEX_NAME", "QUIT_EVENT_NAME", "LAUNCH_EVENT_NAME", "RELOAD_EVENT_NAME"):
         monkeypatch.setattr(app, name, f"{getattr(app, name)}-test-{tag}")
     monkeypatch.setattr(app, "TRAY_CHOICES_PATH", tmp_path / "tray_choices.json")
     monkeypatch.setattr(app, "SERVER_TOKEN_PATH", tmp_path / "server_token.txt")
     monkeypatch.setattr(app, "load_api_key", lambda **kwargs: None)
     monkeypatch.setattr(app, "default_input_rate", lambda: 16_000)
     harness = SimpleNamespace(
-        config=Config(overlay="off", sounds=False), windows=Windows(), dictations=[], notifications=[]
+        config=Config(overlay="off", sounds=False), windows=Windows(), dictations=[], notifications=[],
+        finished=threading.Event(), stopped=threading.Event(), launches=[],
     )
     # Whatever a test configures, the server listens on loopback only, on a port of the system's choosing.
     monkeypatch.setattr(
@@ -267,7 +268,12 @@ def fake_main(tmp_path, monkeypatch, caplog) -> SimpleNamespace:
         def stop(self) -> None:
             pass
 
+        def finish(self) -> None:
+            harness.finished.set()
+
     monkeypatch.setattr(app, "Dictation", FakeDictation)
+    monkeypatch.setattr(app, "launch_background", lambda *args: harness.launches.append(args))
+    monkeypatch.setattr(pystray.Icon, "stop", lambda icon: harness.stopped.set())
 
     def run(*args: str, during: Callable[[pystray.Icon], None] = lambda icon: None) -> int:
         def loop(icon: pystray.Icon) -> None:
@@ -349,6 +355,26 @@ def test_main_selects_claude_for_local_and_server_dictations_and_names_its_key(f
     assert fake_main.run(during=during) == 0
     assert requested == ["ANTHROPIC_API_KEY"]
     assert all(c._client.is_closed for c in clients)
+
+
+def test_settings_is_the_default_tray_action_and_opens_the_window(fake_main):
+    def during(icon):
+        item = next(item for item in icon.menu.items if item.text == "Settings…")
+        assert item.default
+        item(icon)
+
+    assert fake_main.run(during=during) == 0
+    assert fake_main.launches == [("--settings",)]
+
+
+def test_saved_settings_finish_dictation_then_restart_the_app(fake_main):
+    def during(icon):
+        assert app.signal_event(app.RELOAD_EVENT_NAME)
+        assert fake_main.finished.wait(5)
+        assert fake_main.stopped.wait(5)
+
+    assert fake_main.run(during=during) == 0
+    assert fake_main.launches == [("--notify-ready",)]
 
 
 def test_a_second_launch_exits_and_the_running_app_says_it_is_already_running(fake_main):

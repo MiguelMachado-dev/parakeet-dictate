@@ -1,4 +1,4 @@
-# Copy this file to config.toml in the same folder and uncomment the settings to change.
+# Use Settings from the tray, or copy this file to config.toml and uncomment settings to change.
 # Restart the app after editing: run `uv run parakeet-dictate --quit`, then start it again.
 
 # Hold to talk; tap quickly for hands-free. Any pynput Key name, for example
@@ -75,7 +75,7 @@
 # The IPv4 address to listen on. "0.0.0.0" listens on every network adapter.
 # bind = "0.0.0.0"
 
-# App rules for local dictations. Copy the whole [[app_rules]] block for another rule.
+# App rules for local dictations. Edit them in Settings > App rules, or copy this block.
 # Uses the executable of the foreground window when recording ends, case-insensitively.
 # Find executable names in Task Manager > Details. No paths or wildcards.
 # Matching, enabled rules are combined in file order and post-process even with the

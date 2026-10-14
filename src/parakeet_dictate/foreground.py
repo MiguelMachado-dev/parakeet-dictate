@@ -17,11 +17,35 @@ kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 kernel32.CloseHandle.restype = wintypes.BOOL
 
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+user32.EnumWindows.argtypes = [WNDENUMPROC, wintypes.LPARAM]
+user32.EnumWindows.restype = wintypes.BOOL
+user32.IsWindowVisible.argtypes = [wintypes.HWND]
+user32.IsWindowVisible.restype = wintypes.BOOL
 
 
 def foreground_executable() -> str | None:
     """The foreground window's executable name, or None if it vanished or cannot be read."""
-    hwnd = user32.GetForegroundWindow()
+    return _window_executable(user32.GetForegroundWindow())
+
+
+def running_executables() -> list[str]:
+    """Executable names of apps with visible windows, for the rule editor."""
+    names = {}
+
+    @WNDENUMPROC
+    def collect(hwnd, unused):
+        if user32.IsWindowVisible(hwnd):
+            name = _window_executable(hwnd)
+            if name:
+                names[name.casefold()] = name
+        return True
+
+    user32.EnumWindows(collect, 0)
+    return sorted(names.values(), key=str.casefold)
+
+
+def _window_executable(hwnd: int | None) -> str | None:
     pid = wintypes.DWORD()
     if not hwnd or not user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid)) or not pid.value:
         return None

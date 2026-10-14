@@ -56,6 +56,19 @@ A tray icon shows the state. A hollow ring means the model is loading, which tak
 
 The microphone opens when you press the hotkey and closes when the recording stops. A Bluetooth headset stays in its high-quality mode between dictations, and the Windows microphone indicator is lit only while you record.
 
+## Settings
+
+Double-click the tray icon, or right-click it and choose **Settings…**. You can also run `uv run parakeet-dictate --settings` to open the window. Opening it again brings the existing window forward.
+
+- **General:** the dictation hotkey, GPU or CPU, overlay, sounds, trailing space, tap threshold, and model folder.
+- **Post-processing:** GLM or Claude, separate masked API keys, model, thinking, effort, timeout, and extra instructions. **Test provider** sends a short sample with the values in the window, without saving them.
+- **App rules:** add a preset or blank rule, edit its instructions, enable or disable it, and move it up or down. Add an app from the list of running executables, type its name, or browse to its `.exe`.
+- **Server for Mac:** turn the server on or off and set its port and listen address.
+
+Click **Save and apply** (or press Ctrl+S). The app finishes the current local dictation, reloads with the new settings, and shows a Ready notification once the model is available. Closing the window discards unsaved changes only after you confirm. **Reload** reads the latest saved values; if another change was made from the tray or in a file while the window was open, reload before saving.
+
+The window saves to the existing `config.toml`, `.env`, and `tray_choices.json` files, preserving configuration comments and unrelated keys. An API key supplied by an environment variable is read-only in the window and is never copied to `.env`.
+
 ## Overlay
 
 While you dictate, a small window above the taskbar shows your microphone level live, then whether the app is transcribing or post-processing. It appears on the monitor of the window you are dictating into, 48 px above the bottom of the work area, scaled to that monitor's DPI. When the text is pasted, cancelled, or fails, it shows that for about half a second and fades out.
@@ -70,7 +83,7 @@ It comes in two styles. `fluid` draws translucent ribbons in a night-blue capsul
 
 The app can send each transcript to GLM-5.3 on [Z.ai](https://z.ai) or Claude on [Anthropic](https://platform.claude.com) before it pastes. Both use the same prompt: remove fillers such as um, uh, tipo, and né, false starts, and repeated words; keep only the correction when you correct yourself ("quinta, não, sexta"); and fix punctuation and capitalization. They keep your language and wording, and do not answer questions or follow requests you dictate.
 
-Z.ai is the default. To turn it on:
+Z.ai is the default. Open **Settings… > Post-processing**, select the provider, enter its API key, and click **Test provider**. Then click **Save and apply**. The same settings can also be edited in files. For Z.ai:
 
 1. Get an API key for the Z.ai GLM Coding Plan.
 2. Put the key in a file named `.env` in the project root. `.env` is gitignored. A `ZAI_API_KEY` environment variable takes priority over the file.
@@ -112,7 +125,7 @@ To turn it off or on, right-click the tray icon and click **Post-process with GL
 
 ## App rules
 
-Add `[[app_rules]]` blocks at the end of `config.toml` to give the selected post-processing model instructions for certain apps:
+Use **Settings… > App rules** to give the selected post-processing model instructions for certain apps. Rules can also be written as `[[app_rules]]` blocks at the end of `config.toml`:
 
 ```toml
 [[app_rules]]
@@ -126,7 +139,7 @@ apps = ["Slack.exe"]
 instructions = "Make the tone casual and friendly, as in a chat message."
 ```
 
-Restart after editing. Use the executable name from **Task Manager > Details**, including `.exe`, without a path or wildcard. Matching ignores case. A browser rule covers the whole browser, including all its tabs. `enabled` defaults to `true`; add `enabled = false` to disable a rule. Rules with empty instructions or no apps do nothing.
+Click **Save and apply** in the window, or restart after editing the file directly. Use the executable name from **Task Manager > Details**, including `.exe`, without a path or wildcard. Matching ignores case. A browser rule covers the whole browser, including all its tabs. `enabled` defaults to `true`; add `enabled = false` to disable a rule. Rules with empty instructions or no apps do nothing.
 
 The app reads the foreground window's executable when recording ends. If you switch apps while speaking, the app in front at the end decides the rules. Matching rules add up in file order: Slack gets both rules above, Discord gets only English. The instructions stay with that dictation while transcription and post-processing run. If Windows cannot identify the app, no app rule applies.
 
@@ -146,7 +159,7 @@ If the port is in use, the app plays the error tone, writes the reason to `dicta
 
 ## Configure
 
-Copy `config.example.toml` to `config.toml` and uncomment the settings to change. Restart the app after editing.
+The Settings window covers the options below. To edit them directly, copy `config.example.toml` to `config.toml` and uncomment the settings to change. Restart the app after editing a file directly.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |

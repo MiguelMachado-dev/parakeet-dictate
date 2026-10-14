@@ -55,7 +55,7 @@ Open **Settings…** from the menu.
 | Thinking | Anthropic only. Off (default) is the fastest: the model writes the cleaned text without reasoning first. On, it reasons first, for as long as the effort asks. |
 | Effort | Anthropic only: Low (default), Medium, High, Extra high, or Max. With thinking off the API takes High or below, so the higher two show only with thinking on. |
 | Extra instructions | Appended to the prompt, for names and jargon, as in `config.toml`. |
-| App rules | Opens **App Rules…**, also in the menu. On Windows, edit `[[app_rules]]` in `config.toml`. |
+| App rules | Opens **App Rules…**, also in the menu. On Windows, open **Settings… > App rules** from the tray. |
 
 Claude Sonnet 5.5 turns thinking off with `between_tools`, the other models with `disabled`; a typed model that cannot turn it off, such as Claude Opus 5.5, fails every request with thinking off, and the log says why. Requests to Claude Sonnet 5.5 also turn on the API's server-side fallback, which re-runs a declined request on Claude Sonnet 5. Claude Haiku 5.5 has none, so a declined request pastes the raw transcript, like any other failure.
 

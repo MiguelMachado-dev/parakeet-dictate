@@ -106,9 +106,14 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"{path}: {e}") from e
 
+    return parse_config(raw)
+
+
+def parse_config(raw: dict) -> Config:
+    """Validate settings from either TOML or the settings window before applying them."""
     unknown = raw.keys() - {f.name for f in fields(Config)}
     if unknown:
-        raise ConfigError(f"{path}: unknown setting(s) {sorted(unknown)}")
+        raise ConfigError(f"unknown setting(s) {sorted(unknown)}")
 
     values = {name: _parse(name, value) for name, value in raw.items()}
     return Config(**values)

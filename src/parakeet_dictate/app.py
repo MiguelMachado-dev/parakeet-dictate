@@ -7,6 +7,7 @@ import math
 import os
 import queue
 import struct
+import subprocess
 import sys
 import tempfile
 import threading
@@ -28,6 +29,7 @@ from .app_rules import combined_instructions
 from .config import (
     LOG_PATH,
     OVERLAY_CHOICES,
+    ROOT,
     SERVER_TOKEN_PATH,
     TRAY_CHOICES_PATH,
     Config,
@@ -92,12 +94,17 @@ kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 MUTEX_NAME = "Local\\parakeet-dictate"
 QUIT_EVENT_NAME = "Local\\parakeet-dictate-quit"
 LAUNCH_EVENT_NAME = "Local\\parakeet-dictate-launched"
+RELOAD_EVENT_NAME = "Local\\parakeet-dictate-reload"
 ERROR_ALREADY_EXISTS = 183
 EVENT_MODIFY_STATE = 0x0002
 INFINITE = 0xFFFFFFFF
 WAIT_OBJECT_0 = 0
 WM_KEYDOWN, WM_SYSKEYDOWN = 0x0100, 0x0104
 RELEASE_POLL_S = 0.05
+
+
+class FinishDictation:
+    """Stop accepting recordings once the current dictation and hotkey release finish."""
 
 
 class Dictation:
@@ -124,7 +131,7 @@ class Dictation:
         self._polish_enabled = polish_enabled
         self._foreground_app = foreground_app
         self._instructions = ""
-        self._events: queue.Queue[Event | None] = queue.Queue()
+        self._events: queue.Queue[Event | FinishDictation | None] = queue.Queue()
         self._state: State = Idle()
         self._released_at = 0.0
         self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="transcribe")
@@ -148,6 +155,10 @@ class Dictation:
         self._worker.shutdown(wait=True, cancel_futures=True)
         self._polisher.shutdown(wait=False, cancel_futures=True)
         self._recorder.discard()
+
+    def finish(self) -> None:
+        self._events.put(FinishDictation())
+        self._controller.join()
 
     def post(self, event: Event) -> None:
         self._events.put(event)
@@ -181,7 +192,10 @@ class Dictation:
         return False
 
     def _run(self) -> None:
+        finishing = False
         while True:
+            if finishing and self._state == Idle():
+                return
             awaiting = isinstance(self._state, AwaitingRelease)
             try:
                 event = self._events.get(timeout=RELEASE_POLL_S if awaiting else None)
@@ -192,6 +206,9 @@ class Dictation:
                 event = HotkeyUp(time.perf_counter())
             if event is None:
                 return
+            if isinstance(event, FinishDictation):
+                finishing = True
+                continue
             try:
                 self._handle(event)
             except Exception:
@@ -444,6 +461,7 @@ class Tray:
         server: DictationServer,
         cues: Cues,
         postprocess: PostprocessConfig = PostprocessConfig(),
+        on_settings: Callable[[], None] = lambda: None,
     ) -> None:
         self.provider = ""
         self._choices = choices
@@ -469,6 +487,7 @@ class Tray:
                     enabled=lambda item: server.running,
                 ),
                 pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Settings…", lambda: on_settings(), default=True),
                 pystray.MenuItem("Open log", lambda: os.startfile(LOG_PATH)),
                 pystray.MenuItem("Quit", lambda: on_quit()),
             ),
@@ -605,11 +624,22 @@ def setup_logging() -> None:
     )
 
 
+def launch_background(*arguments: str) -> None:
+    subprocess.Popen(
+        [str(ROOT / ".venv" / "Scripts" / "pythonw.exe"), "-m", "parakeet_dictate", *arguments],
+        cwd=ROOT, creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="parakeet-dictate", description="Push-to-talk dictation with Parakeet.")
     parser.add_argument("--quit", action="store_true", help="stop the running instance")
     parser.add_argument("--notify-ready", action="store_true", help="show a notification once the model is loaded")
+    parser.add_argument("--settings", action="store_true", help="open the settings window")
     args = parser.parse_args()
+    if args.settings:
+        from .settings_window import main as settings_main
+        return settings_main()
     setup_logging()
 
     if args.quit:
@@ -623,10 +653,14 @@ def main() -> int:
         log.info("another instance is already running; %s", "asked it to say so" if told else "it is still starting")
         return 0
     log.info("starting, pid %d", os.getpid())
+    # Publish before reading settings, so a save during startup can request another reload.
+    reload_event = kernel32.CreateEventW(None, False, False, RELOAD_EVENT_NAME)
     try:
         config = load_config()
     except ConfigError as e:
         log.error("invalid config: %s", e)
+        kernel32.CloseHandle(reload_event)
+        kernel32.CloseHandle(mutex)
         return 1
 
     quit_event = kernel32.CreateEventW(None, True, False, QUIT_EVENT_NAME)
@@ -656,11 +690,13 @@ def main() -> int:
         server=server,
         cues=cues,
         postprocess=config.postprocess,
+        on_settings=lambda: launch_background("--settings"),
     )
     # Before the model loads, so a Mac sees 503 "still loading" instead of no server.
     if choices.server:
         tray.start_server()
     stopping = threading.Event()
+    restarting = threading.Event()
     running: list[Dictation] = []
 
     def load() -> None:
@@ -719,9 +755,22 @@ def main() -> int:
             tray.notify(f"Parakeet Dictate is already running. {hint}")
 
     loader = threading.Thread(target=load, name="loader")
+
+    def wait_for_settings() -> None:
+        if kernel32.WaitForSingleObject(reload_event, INFINITE) != WAIT_OBJECT_0:
+            return
+        log.info("settings saved; finishing the current dictation before reloading")
+        loader.join()
+        for dictation in running:
+            dictation.finish()
+        if not stopping.is_set():
+            restarting.set()
+            tray.icon.stop()
+
     loader.start()
     threading.Thread(target=wait_for_quit, name="quit-watcher", daemon=True).start()
     threading.Thread(target=wait_for_launches, name="launch-watcher", daemon=True).start()
+    threading.Thread(target=wait_for_settings, name="settings-watcher", daemon=True).start()
     tray.icon.run()
 
     log.info("shutting down")
@@ -735,6 +784,9 @@ def main() -> int:
         polisher.close()
     kernel32.CloseHandle(quit_event)
     kernel32.CloseHandle(launch_event)
+    kernel32.CloseHandle(reload_event)
     kernel32.CloseHandle(mutex)
     log.info("stopped")
+    if restarting.is_set():
+        launch_background("--notify-ready")
     return 0

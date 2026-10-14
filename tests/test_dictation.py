@@ -282,3 +282,40 @@ def test_queued_requests_keep_their_rules_after_raw_fallback_and_a_new_dictation
         assert h.pasted.empty()
     finally:
         release.set()
+
+
+def test_applying_settings_waits_for_recording_to_finish_and_text_to_be_pasted(running):
+    h = running()
+    begin(h)
+    finished = threading.Event()
+
+    def finish():
+        h.dictation.finish()
+        finished.set()
+
+    worker = threading.Thread(target=finish)
+    worker.start()
+    assert not finished.wait(0.05)
+    h.dictation.post(HotkeyUp(2))
+    assert h.pasted.get(timeout=5) == "polished"
+    assert finished.wait(5)
+    worker.join()
+    assert not h.dictation._controller.is_alive()
+
+
+def test_applying_settings_also_waits_for_a_held_hotkey(running):
+    h = running()
+    begin(h)
+    wait_state(h, Recording)
+    h.dictation.post(HotkeyUp(0.1))
+    wait_state(h, Recording)
+    h.dictation.post(HotkeyDown(2))
+    wait_state(h, AwaitingRelease)
+    finished = threading.Event()
+    worker = threading.Thread(target=lambda: (h.dictation.finish(), finished.set()))
+    worker.start()
+    assert not finished.wait(0.05) and h.pasted.empty()
+    h.dictation.post(HotkeyUp(3))
+    assert h.pasted.get(timeout=5) == "polished"
+    assert finished.wait(5)
+    worker.join()
