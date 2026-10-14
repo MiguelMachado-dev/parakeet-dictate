@@ -1,7 +1,9 @@
+import ctypes
 import logging
 import re
 import threading
 import time
+from ctypes import wintypes
 from pathlib import Path
 from typing import get_args
 
@@ -20,6 +22,24 @@ MODEL_NAME = "nemo-parakeet-tdt-0.6b-v3"
 CUDA = "CUDAExecutionProvider"
 MIN_SECONDS = 0.1
 WARMUP_SECONDS = (1.0, 4.0)
+THREAD_POWER_THROTTLING = 3
+THREAD_POWER_THROTTLING_EXECUTION_SPEED = 0x1
+
+
+class ThreadPowerThrottlingState(ctypes.Structure):
+    _fields_ = [("Version", wintypes.ULONG), ("ControlMask", wintypes.ULONG), ("StateMask", wintypes.ULONG)]
+
+
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+kernel32.GetCurrentThread.restype = wintypes.HANDLE
+kernel32.SetThreadInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+
+
+def prefer_performance_cores() -> None:
+    """Tag the calling thread high QoS. Untagged, Windows can run it on an efficiency core, where a
+    transcription took two to four times as long in scripts/bench_resources.py runs."""
+    state = ThreadPowerThrottlingState(1, THREAD_POWER_THROTTLING_EXECUTION_SPEED, 0)
+    kernel32.SetThreadInformation(kernel32.GetCurrentThread(), THREAD_POWER_THROTTLING, ctypes.byref(state), ctypes.sizeof(state))
 
 
 class Transcriber:
@@ -35,6 +55,7 @@ class Transcriber:
     def transcribe(self, audio: Audio) -> str:
         if audio.seconds < MIN_SECONDS:
             return ""
+        prefer_performance_cores()
         samples, rate = audio.samples, audio.rate
         if rate not in get_args(SampleRates):
             samples, rate = resample(samples, rate, 16_000), 16_000
