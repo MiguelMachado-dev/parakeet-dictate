@@ -420,6 +420,8 @@ user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintyp
 user32.IsWindowVisible.argtypes = [wintypes.HWND]
 user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
 user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+user32.GetDpiForWindow.argtypes = [wintypes.HWND]
+user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
 kernel32.OpenMutexW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
 kernel32.OpenMutexW.restype = wintypes.HANDLE
 WM_CLOSE = 0x0010
@@ -465,6 +467,9 @@ def measure_settings(args: argparse.Namespace, src: Path, stem: Path) -> dict:
         hwnd, owner = found
         time.sleep(args.settle)
         row.update(winstats.memory(owner), threads=winstats.threads(owner))
+        rect = wintypes.RECT()
+        user32.GetWindowRect(hwnd, ctypes.byref(rect))
+        row["dpi"], row["window_size"] = user32.GetDpiForWindow(hwnd), [rect.right - rect.left, rect.bottom - rect.top]
         if owner != process.pid:
             launcher = winstats.memory(process.pid)
             row["launcher_working_set_mb"], row["launcher_commit_mb"] = launcher["working_set_mb"], launcher["commit_mb"]

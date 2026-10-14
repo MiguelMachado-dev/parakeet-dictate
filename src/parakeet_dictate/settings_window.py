@@ -7,6 +7,7 @@ from dataclasses import asdict
 from tkinter import filedialog, font, messagebox, ttk
 
 from .config import ROOT, Config, ConfigError, PostprocessConfig, parse_config
+from .instance import ERROR_ALREADY_EXISTS, RELOAD_EVENT_NAME, WAIT_OBJECT_0, kernel32, launch_background, signal_event
 from .polish import PolishError, create_polisher
 from .rules_editor import RulesEditor
 from .settings_store import KEY_NAMES, SettingsStore, config_values
@@ -20,7 +21,6 @@ SHOW_EVENT = "Local\\parakeet-dictate-show-settings"
 
 
 def apply_settings() -> str:
-    from .app import RELOAD_EVENT_NAME, launch_background, signal_event
     if signal_event(RELOAD_EVENT_NAME):
         return "Saved. The app will reload after the current dictation finishes."
     launch_background("--notify-ready")
@@ -400,7 +400,6 @@ class SettingsWindow:
 
 
 def main() -> int:
-    from .app import ERROR_ALREADY_EXISTS, WAIT_OBJECT_0, kernel32, signal_event, user32
     mutex = kernel32.CreateMutexW(None, True, SETTINGS_MUTEX)
     if not mutex:
         raise ctypes.WinError(ctypes.get_last_error())
@@ -409,7 +408,7 @@ def main() -> int:
         signal_event(SHOW_EVENT)
         return 0
     show = kernel32.CreateEventW(None, False, False, SHOW_EVENT)
-    user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+    ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
     root = tk.Tk()
     root.withdraw()
     try:

@@ -6,7 +6,6 @@ import math
 import os
 import queue
 import struct
-import subprocess
 import sys
 import tempfile
 import threading
@@ -15,7 +14,6 @@ import wave
 import winsound
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from ctypes import wintypes
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -28,7 +26,6 @@ from .app_rules import combined_instructions
 from .config import (
     LOG_PATH,
     OVERLAY_CHOICES,
-    ROOT,
     SERVER_TOKEN_PATH,
     TRAY_CHOICES_PATH,
     Config,
@@ -38,6 +35,18 @@ from .config import (
     load_config,
 )
 from .foreground import foreground_executable
+from .instance import (
+    ERROR_ALREADY_EXISTS,
+    INFINITE,
+    LAUNCH_EVENT_NAME,
+    MUTEX_NAME,
+    QUIT_EVENT_NAME,
+    RELOAD_EVENT_NAME,
+    WAIT_OBJECT_0,
+    kernel32,
+    launch_background,
+    signal_event,
+)
 from .overlay import Overlay
 from .overlay_frame import Renderer
 from .polish import Polisher, PolishError, create_polisher
@@ -77,28 +86,9 @@ from .tray_choices import TrayChoices
 log = logging.getLogger("parakeet_dictate")
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
-kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 user32.GetAsyncKeyState.argtypes = [ctypes.c_int]
 user32.GetAsyncKeyState.restype = ctypes.c_short
-kernel32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
-kernel32.CreateMutexW.restype = wintypes.HANDLE
-kernel32.CreateEventW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
-kernel32.CreateEventW.restype = wintypes.HANDLE
-kernel32.OpenEventW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
-kernel32.OpenEventW.restype = wintypes.HANDLE
-kernel32.SetEvent.argtypes = [wintypes.HANDLE]
-kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
-kernel32.WaitForSingleObject.restype = wintypes.DWORD
-kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
-MUTEX_NAME = "Local\\parakeet-dictate"
-QUIT_EVENT_NAME = "Local\\parakeet-dictate-quit"
-LAUNCH_EVENT_NAME = "Local\\parakeet-dictate-launched"
-RELOAD_EVENT_NAME = "Local\\parakeet-dictate-reload"
-ERROR_ALREADY_EXISTS = 183
-EVENT_MODIFY_STATE = 0x0002
-INFINITE = 0xFFFFFFFF
-WAIT_OBJECT_0 = 0
 WM_KEYDOWN, WM_SYSKEYDOWN = 0x0100, 0x0104
 RELEASE_POLL_S = 0.05
 
@@ -545,15 +535,6 @@ def acquire_single_instance() -> int | None:
     return handle
 
 
-def signal_event(name: str) -> bool:
-    handle = kernel32.OpenEventW(EVENT_MODIFY_STATE, False, name)
-    if not handle:
-        return False
-    kernel32.SetEvent(handle)
-    kernel32.CloseHandle(handle)
-    return True
-
-
 def setup_logging() -> None:
     # pythonw has no console; libraries that write to a None stream would crash.
     if sys.stdout is None:
@@ -568,13 +549,6 @@ def setup_logging() -> None:
     sys.excepthook = lambda *exc: log.critical("uncaught exception", exc_info=exc)
     threading.excepthook = lambda args: log.critical(
         "uncaught exception in %s", args.thread, exc_info=(args.exc_type, args.exc_value, args.exc_traceback)
-    )
-
-
-def launch_background(*arguments: str) -> None:
-    subprocess.Popen(
-        [str(ROOT / ".venv" / "Scripts" / "pythonw.exe"), "-m", "parakeet_dictate", *arguments],
-        cwd=ROOT, creationflags=subprocess.CREATE_NO_WINDOW,
     )
 
 
