@@ -1,7 +1,6 @@
 import argparse
 import ctypes
 import itertools
-import json
 import logging
 import math
 import os
@@ -73,6 +72,7 @@ from .reducer import (
 from .server import DictationServer
 from .styles import STYLES
 from .transcriber import SharedModel, load_transcriber
+from .tray_choices import TrayChoices
 
 log = logging.getLogger("parakeet_dictate")
 
@@ -349,59 +349,6 @@ class Cues:
             f.setsampwidth(2)
             f.setframerate(self.RATE)
             f.writeframes(struct.pack(f"<{len(samples)}h", *samples))
-
-
-class TrayChoices:
-    """What the tray menu sets, saved in one file so it survives a restart. A choice made in the tray
-    wins over its config.toml setting; a key never chosen, or saved invalid, falls back to the config."""
-
-    _VALID: dict[str, Callable[[object], bool]] = {
-        "postprocess": lambda value: type(value) is bool,
-        "overlay": lambda value: isinstance(value, str) and value in OVERLAY_CHOICES,
-        "server": lambda value: type(value) is bool,
-    }
-
-    def __init__(self, config: Config, path: Path) -> None:
-        self._path = path
-        self._config = {"postprocess": config.postprocess.enabled, "overlay": config.overlay, "server": config.server.enabled}
-        # Only keys chosen in the tray, so a choice of one never pins the other's config value.
-        self._chosen: dict[str, object] = {}
-        try:
-            saved = json.loads(path.read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            return
-        except (OSError, ValueError):
-            saved = None
-        if not isinstance(saved, dict):
-            log.warning("ignoring %s: expected a JSON object", path.name)
-            return
-        for key, value in saved.items():
-            if key in self._VALID and self._VALID[key](value):
-                self._chosen[key] = value
-            else:
-                log.warning("ignoring %r in %s: %r", key, path.name, value)
-
-    @property
-    def postprocess(self) -> bool:
-        return self._chosen.get("postprocess", self._config["postprocess"])
-
-    @property
-    def overlay(self) -> str:
-        """A style name or "off"."""
-        return self._chosen.get("overlay", self._config["overlay"])
-
-    @property
-    def server(self) -> bool:
-        return self._chosen.get("server", self._config["server"])
-
-    def choose(self, key: str, value: object) -> None:
-        self._chosen[key] = value
-        temporary = self._path.with_name(self._path.name + ".tmp")
-        try:
-            temporary.write_text(json.dumps(self._chosen), encoding="utf-8")
-            os.replace(temporary, self._path)
-        except OSError:
-            log.exception("could not save the tray choices")
 
 
 class ActiveOverlay:

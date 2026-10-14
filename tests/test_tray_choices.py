@@ -4,8 +4,8 @@ import os
 
 import pytest
 
-from parakeet_dictate.app import TrayChoices
 from parakeet_dictate.config import Config, PostprocessConfig
+from parakeet_dictate.tray_choices import TrayChoices
 
 
 def config(postprocess: bool = True, overlay: str = "fluid") -> Config:

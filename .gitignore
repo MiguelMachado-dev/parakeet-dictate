@@ -9,6 +9,7 @@ dictate.log*
 .env.tmp
 tray_choices.json
 tray_choices.json.tmp
+tray_choices.json.tray.tmp
 server_token.txt
 server_token.txt.tmp
 previews/

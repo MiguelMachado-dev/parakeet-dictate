@@ -2,10 +2,10 @@ from dataclasses import replace
 
 import pytest
 
-from parakeet_dictate.app import TrayChoices
 from parakeet_dictate.app_rules import AppRule
 from parakeet_dictate.config import ConfigError, PostprocessConfig, load_api_key, load_config
 from parakeet_dictate.settings_store import KEY_NAMES, SettingsConflict, SettingsStore
+from parakeet_dictate.tray_choices import TrayChoices
 
 
 @pytest.fixture
@@ -19,6 +19,37 @@ def test_saved_tray_choices_are_the_values_shown_in_settings(store):
     (store.root / "tray_choices.json").write_text('{"overlay":"bars","postprocess":false,"server":true}')
     config = store.load().config
     assert config.overlay == "bars" and not config.postprocess.enabled and config.server.enabled
+
+
+@pytest.mark.parametrize("content", [
+    b"not json", b"[]", b'{"overlay":"invalid","postprocess":false}',
+    b'{"postprocess":"yes","server":1}', b'\xef\xbb\xbf{"overlay":"bars"}',
+])
+def test_settings_and_tray_use_the_same_valid_saved_choices(store, content):
+    path = store.root / "tray_choices.json"
+    path.write_bytes(content)
+    config = load_config(store.root / "config.toml")
+    tray = TrayChoices(config, path)
+    snapshot = store.load()
+    assert (snapshot.config.overlay, snapshot.config.postprocess.enabled, snapshot.config.server.enabled) == (
+        tray.overlay, tray.postprocess, tray.server,
+    )
+    assert path.read_bytes() == content
+    saved = store.save(snapshot, snapshot.config, snapshot.keys)
+    assert saved.config == snapshot.config
+
+
+def test_tray_change_during_deferred_reload_keeps_the_settings_just_saved(store):
+    snapshot = store.load()
+    tray = TrayChoices(snapshot.config, store.root / "tray_choices.json")
+    tray.choose("postprocess", True)
+    snapshot = store.load()
+    updated = replace(snapshot.config, postprocess=replace(snapshot.config.postprocess, enabled=False),
+                      server=replace(snapshot.config.server, enabled=True))
+    store.save(snapshot, updated, snapshot.keys)
+    tray.choose("overlay", "off")
+    after = store.load().config
+    assert not after.postprocess.enabled and after.server.enabled and after.overlay == "off"
 
 
 def test_save_round_trips_rules_and_provider_and_preserves_comments_and_existing_keys(store):

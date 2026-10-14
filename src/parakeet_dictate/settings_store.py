@@ -6,6 +6,7 @@ from pathlib import Path
 import tomlkit
 
 from .config import ROOT, Config, ConfigError, load_api_key, parse_config
+from .tray_choices import parse_choices
 
 KEY_NAMES = ("ZAI_API_KEY", "ANTHROPIC_API_KEY")
 
@@ -51,13 +52,10 @@ class SettingsStore:
         files = self._files()
         try:
             config = parse_config(tomlkit.parse((files["config.toml"] or b"").decode("utf-8-sig")).unwrap())
-            choices = json.loads((files["tray_choices.json"] or b"{}").decode("utf-8-sig"))
         except (ValueError, tomlkit.exceptions.ParseError) as e:
-            raise ConfigError("Could not read the settings files. Check config.toml and tray_choices.json.") from e
-        if not isinstance(choices, dict):
-            raise ConfigError("tray_choices.json must contain an object.")
+            raise ConfigError("Could not read config.toml. Check its syntax.") from e
         values = config_values(config)
-        for key, value in choices.items():
+        for key, value in parse_choices(files["tray_choices.json"]).items():
             if key == "overlay":
                 values[key] = value
             elif key in ("postprocess", "server"):
@@ -106,7 +104,7 @@ class SettingsStore:
                     env += "\n"
                 if value:
                     env += f"{name}={value}\n"
-        choices = json.loads((current["tray_choices.json"] or b"{}").decode("utf-8-sig"))
+        choices = parse_choices(current["tray_choices.json"])
         choices.update(overlay=config.overlay, postprocess=config.postprocess.enabled, server=config.server.enabled)
         env_bytes = (current[".env"] or b"") if env == original_env else env.encode("utf-8")
         updated = {"config.toml": tomlkit.dumps(doc).encode("utf-8"), ".env": env_bytes,
