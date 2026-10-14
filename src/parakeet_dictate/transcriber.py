@@ -3,15 +3,20 @@ import logging
 import re
 import threading
 import time
+from collections.abc import Callable
 from ctypes import wintypes
+from importlib.resources import files
 from pathlib import Path
-from typing import get_args
+from typing import Literal, get_args
 
 import numpy as np
 import numpy.typing as npt
-import onnx_asr
+import onnx_asr.preprocessors
 import onnxruntime
 from onnx_asr.adapters import TextResultsAsrAdapter
+from onnx_asr.loader import Manager
+from onnx_asr.onnx import OnnxSessionOptions, TensorRtOptions
+from onnx_asr.preprocessors.resampler import Resampler
 from onnx_asr.utils import SampleRates
 
 from .recorder import Audio
@@ -96,6 +101,33 @@ def resample(samples: npt.NDArray[np.float32], rate: int, target: int) -> npt.ND
     return (np.fft.irfft(spectrum, n_out) * (n_out / len(samples))).astype(np.float32)
 
 
+class LazyResampler(Resampler):
+    """onnx_asr's Resampler opens a session for each of its seven input rates as the model loads, about
+    70 MB of GPU memory each. A microphone records at one rate, so open each the first time it arrives."""
+
+    def __init__(self, sample_rate: Literal[8_000, 16_000], onnx_options: OnnxSessionOptions):
+        self._target_sample_rate = sample_rate
+        self._preprocessors = OpenOnFirstUse(lambda rate: onnxruntime.InferenceSession(
+            files(onnx_asr.preprocessors).joinpath("data", f"resample_{rate // 1000}_{sample_rate // 1000}.onnx").read_bytes(),
+            **TensorRtOptions.add_profile(onnx_options, self._preprocessor_shapes),
+        ))
+
+
+class OpenOnFirstUse(dict):
+    def __init__(self, open_session: Callable[[int], onnxruntime.InferenceSession]):
+        super().__init__()
+        self._open_session = open_session
+
+    def __missing__(self, rate: int) -> onnxruntime.InferenceSession:
+        session = self[rate] = self._open_session(rate)
+        return session
+
+
+class LazyResamplerManager(Manager):
+    def _create_resampler(self, sample_rate: Literal[8_000, 16_000]) -> Resampler:
+        return LazyResampler(sample_rate, self.resampler_config)
+
+
 def load_transcriber(model_dir: Path, provider: str, *, cudnn_conv_algo_search: str | None = None) -> Transcriber:
     if not (model_dir / "config.json").exists():
         raise FileNotFoundError(f"no model in {model_dir}; run scripts/download_model.py")
@@ -128,7 +160,7 @@ def _load(model_dir: Path, *, cuda: bool, cudnn_conv_algo_search: str | None = N
     else:
         providers = ["CPUExecutionProvider"]
         quantization = "int8"
-    model = onnx_asr.load_model(MODEL_NAME, model_dir, quantization=quantization, sess_options=options, providers=providers)
+    model = LazyResamplerManager(options, providers).create_asr(MODEL_NAME, model_dir, quantization=quantization)
     transcriber = Transcriber(model, model.asr._encoder.get_providers()[0], quantization)
     log.info("loaded %s on %s in %.1f s", MODEL_NAME, transcriber.label, time.perf_counter() - t0)
     return transcriber
