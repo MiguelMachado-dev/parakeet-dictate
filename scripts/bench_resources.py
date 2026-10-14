@@ -361,7 +361,7 @@ def child_env(src: Path) -> dict:
 
 
 def run_children(args: argparse.Namespace, kind: str, measure) -> None:
-    out = Path(args.out)
+    out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     sides = parse_sides(args.side)
     meta = {"environment": environment(), "sides": {name: {"src": str(src), "sha": side_sha(src)} for name, src in sides},
