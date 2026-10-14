@@ -63,8 +63,28 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Post-process with GLM", isOn: $settings.postprocess)
-                SecureField("Z.ai API key", text: $settings.zaiAPIKey)
+                Toggle("Post-process", isOn: $settings.postprocess)
+                Picker("Provider", selection: $settings.polishProvider) {
+                    ForEach(PolishProvider.allCases) { Text($0.title).tag($0) }
+                }
+                switch settings.polishProvider {
+                case .zai:
+                    SecureField("Z.ai API key", text: $settings.zaiAPIKey)
+                case .anthropic:
+                    SecureField("Anthropic API key", text: $settings.anthropicAPIKey)
+                    Picker("Model", selection: $settings.claudeModel) {
+                        ForEach(ClaudeModel.allCases) { Text($0.title).tag($0) }
+                    }
+                    if settings.claudeModel == .other {
+                        TextField("Model ID", text: $settings.claudeOtherModel, prompt: Text(ClaudeConfig.haiku))
+                    }
+                    Toggle("Thinking", isOn: $settings.claudeThinking)
+                    Picker("Effort", selection: $settings.claudeEffort) {
+                        ForEach(ClaudeEffort.allCases.filter { settings.claudeThinking || $0.allowsThinkingOff }) {
+                            Text($0.title).tag($0)
+                        }
+                    }
+                }
                 TextField(
                     "Extra instructions", text: $settings.extraInstructions,
                     prompt: Text("Names: Miguel, João. Terms: Parakeet, Z.ai, GLM."), axis: .vertical
@@ -73,16 +93,23 @@ struct SettingsView: View {
             } header: {
                 Text("Post-processing")
             } footer: {
-                Text(
-                    "GLM removes fillers and fixes punctuation. On this Mac it uses the key above; "
-                        + "on the PC, the PC's own key and settings."
-                )
-                .font(.caption).foregroundStyle(.secondary)
+                Text(postprocessingFooter).font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
         .frame(width: 500)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var postprocessingFooter: String {
+        let pc = "Transcribing on the PC, the PC post-processes with its own GLM key and settings."
+        switch settings.polishProvider {
+        case .zai:
+            return "GLM removes fillers and fixes punctuation, with the key above. \(pc)"
+        case .anthropic:
+            return "Claude removes fillers and fixes punctuation, with the key above. Thinking off is the fastest, "
+                + "and works at effort High or below. \(pc)"
+        }
     }
 
     private func pasteConnectionInfo() {

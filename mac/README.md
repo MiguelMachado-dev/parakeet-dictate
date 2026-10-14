@@ -2,7 +2,7 @@
 
 A menu bar app with the Windows app's dictation: hold a key, talk, release, and the text is pasted where you type. It transcribes in one of two places, chosen in the menu:
 
-- **This Mac.** Parakeet TDT 0.6B v3, the PC's model, converted to Core ML and run on the Neural Engine through [FluidAudio](https://github.com/FluidInference/FluidAudio). A 6 s clip takes about 50 ms on an M5 Pro. With a Z.ai key in Settings, the transcript then goes to GLM from the Mac, with the same prompt and checks as `src/parakeet_dictate/polish.py`.
+- **This Mac.** Parakeet TDT 0.6B v3, the PC's model, converted to Core ML and run on the Neural Engine through [FluidAudio](https://github.com/FluidInference/FluidAudio). A 6 s clip takes about 50 ms on an M5 Pro. The transcript then goes from the Mac to GLM through Z.ai or to Claude through Anthropic, whichever Settings names, with the same prompt and checks as `src/parakeet_dictate/polish.py`.
 - **The PC.** The audio goes to the Windows app's **Server for Mac**, which transcribes and post-processes it and sends back the text. See [Dictate from a Mac](../README.md#dictate-from-a-mac) to turn the server on, and [docs/mac-client.md](../docs/mac-client.md) for the HTTP contract.
 
 ## Build
@@ -48,17 +48,24 @@ Open **Settings…** from the menu.
 | Sounds | The start, stop, cancel, and error tones of the Windows app. |
 | Pause media while recording | On by default. A Mac addition. Also in the menu. |
 | URL and Token | The PC's server. **Paste Connection Info** reads the two lines that the tray's **Copy Mac connection info** copies on the PC. **Test Connection** checks them. |
-| Post-process with GLM | On This Mac, needs the Z.ai key below. On the PC, sent with each request, and the PC uses its own key. Also in the menu. |
-| Z.ai API key | Kept in the Keychain, like the PC token. |
-| Extra instructions | Appended to GLM's prompt, for names and jargon, as in `config.toml`. |
+| Post-process | On This Mac, needs the chosen provider's key. On the PC, sent with each request, and the PC post-processes with its own GLM key and settings, whatever provider is chosen here. Also in the menu. |
+| Provider | Z.ai (GLM), the default, through the GLM Coding Plan, or Anthropic (Claude). A Mac addition. |
+| Z.ai API key, Anthropic API key | Kept in the Keychain, like the PC token. Each shows when its provider is chosen. |
+| Model | Anthropic only: Claude Haiku 5.5 (default), Claude Sonnet 5.5, or Other, for any model ID typed below it. |
+| Thinking | Anthropic only. Off (default) is the fastest: the model writes the cleaned text without reasoning first. On, it reasons first, for as long as the effort asks. |
+| Effort | Anthropic only: Low (default), Medium, High, Extra high, or Max. With thinking off the API takes High or below, so the higher two show only with thinking on. |
+| Extra instructions | Appended to the prompt, for names and jargon, as in `config.toml`. |
 
-The other GLM settings of `config.toml` are defaults you can change from the terminal, then quit and reopen the app:
+Claude Sonnet 5.5 turns thinking off with `between_tools`, the other models with `disabled`; a typed model that cannot turn it off, such as Claude Opus 5.5, fails every request with thinking off, and the log says why. Requests to Claude Sonnet 5.5 also turn on the API's server-side fallback, which re-runs a declined request on Claude Sonnet 5. Claude Haiku 5.5 has none, so a declined request pastes the raw transcript, like any other failure.
+
+The other GLM settings of `config.toml`, and Claude's timeout, are defaults you can change from the terminal, then quit and reopen the app:
 
 ```sh
 defaults write dev.miguelmachado.parakeet-dictate glmModel glm-5.3
 defaults write dev.miguelmachado.parakeet-dictate glmReasoningEffort low
 defaults write dev.miguelmachado.parakeet-dictate glmTimeout -float 8
 defaults write dev.miguelmachado.parakeet-dictate glmEndpoint https://api.z.ai/api/coding/paas/v4/chat/completions
+defaults write dev.miguelmachado.parakeet-dictate claudeTimeout -float 8
 ```
 
 ## Check from the terminal
@@ -69,7 +76,7 @@ The app's binary has four checks that use its real code and settings, without th
 APP="mac/build/Parakeet Dictate.app/Contents/MacOS/ParakeetDictate"
 "$APP" --check-local tests/fixtures/pt.wav tests/fixtures/en.wav   # the local model
 "$APP" --check-server tests/fixtures/pt.wav                        # the PC in Settings
-"$APP" --check-glm "um so the meeting is uh friday"                # GLM with the key in Settings
+"$APP" --check-polish "um so the meeting is uh friday"             # the provider and key in Settings
 "$APP" --check-media    # pauses what is playing for 1.5 s, then plays it again
 ```
 
@@ -79,7 +86,7 @@ APP="mac/build/Parakeet Dictate.app/Contents/MacOS/ParakeetDictate"
 
 ```sh
 cd mac
-swift test    # the reducer, the PC client, GLM, WAV, tones, resampling, the meter, the overlay scene and styles
+swift test    # the reducer, the PC client, GLM, Claude, WAV, tones, resampling, the meter, the overlay scene and styles
 swift build   # a debug build; run the app itself from the bundle so macOS applies its permissions
 ```
 

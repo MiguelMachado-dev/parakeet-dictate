@@ -2,8 +2,9 @@ import AVFoundation
 import AppKit
 import DictateCore
 
-// `ParakeetDictate --check-local a.wav b.wav`, `--check-server a.wav`, and `--check-glm "some text"` exercise
+// `ParakeetDictate --check-local a.wav b.wav`, `--check-server a.wav`, and `--check-polish "some text"` exercise
 // each engine from the terminal with the app's own code and settings, without the menu bar app.
+// `--check-polish` post-processes with the provider chosen in Settings; `--check-glm` is its old name.
 // `--check-media` pauses and resumes what is playing, the way a dictation does.
 // PARAKEET_SERVER="<url> <token>" points --check-server somewhere other than the PC in Settings.
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -65,18 +66,22 @@ case "--check-server":
             }
         }
     }
-case "--check-glm":
-    await check("GLM") {
-        let settings = Settings()
-        guard let key = settings.apiKey else {
-            throw PolishError("no Z.ai API key in Settings")
+case "--check-polish", "--check-glm":
+    let settings = Settings()
+    await check(settings.polishProvider.modelName) {
+        guard let polisher = settings.makePolisher() else {
+            throw PolishError("no \(settings.polishProvider.keyName) API key in Settings")
         }
-        let glm = GlmClient(config: settings.glmConfig, apiKey: key)
+        if settings.polishProvider == .anthropic {
+            let config = settings.claudeConfig
+            print("\(config.model), effort \(config.effort), thinking \(config.thinking ? "on" : "off")")
+        }
         let t = Date()
-        await glm.preconnect()
+        await polisher.preconnect()
         print("pre-connect in \(elapsed(since: t))")
         let p = Date()
-        print("polished in \(elapsed(since: p)): \(try await glm.polish(arguments.dropFirst().joined(separator: " ")))")
+        let text = try await polisher.polish(arguments.dropFirst().joined(separator: " "))
+        print("polished in \(elapsed(since: p)): \(text)")
     }
 case "--check-media":
     await check("media") {

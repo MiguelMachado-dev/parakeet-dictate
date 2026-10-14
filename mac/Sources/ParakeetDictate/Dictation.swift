@@ -24,7 +24,7 @@ final class Dictation {
         didSet { stateChanged(from: oldValue) }
     }
     private var server: ServerClient?
-    private var glm: GlmClient?
+    private var polisher: (any Polisher)?
     private var transcription: Task<Void, Never>?
     /// Bumped by every new or cancelled transcription, so a stale result is dropped.
     private var generation = 0
@@ -73,7 +73,7 @@ final class Dictation {
             server = nil
             serverStatus = .notConfigured
         }
-        glm = settings.apiKey.map { GlmClient(config: settings.glmConfig, apiKey: $0) }
+        polisher = settings.makePolisher()
         switch settings.engine {
         case .local:
             Task { await local.load() }
@@ -103,7 +103,7 @@ final class Dictation {
     }
 
     private var polishOn: Bool {
-        settings.engine == .local && settings.postprocess && glm != nil
+        settings.engine == .local && settings.postprocess && polisher != nil
     }
 
     func post(_ event: Event) {
@@ -150,8 +150,8 @@ final class Dictation {
             }
             if settings.engine == .server {
                 checkServer()
-            } else if polishOn, let glm {
-                Task { await glm.preconnect() }
+            } else if polishOn, let polisher {
+                Task { await polisher.preconnect() }
             }
         case .stopAndTranscribe:
             do {
@@ -241,20 +241,20 @@ final class Dictation {
     }
 
     private func polish(_ text: String, requestID: Int) {
-        guard let glm else {
-            post(.polishFailed(requestID: requestID, reason: "no Z.ai API key"))
+        guard let polisher else {
+            post(.polishFailed(requestID: requestID, reason: "no \(settings.polishProvider.keyName) API key"))
             return
         }
         Task {
             do {
-                post(.polished(requestID: requestID, text: try await glm.polish(text)))
+                post(.polished(requestID: requestID, text: try await polisher.polish(text)))
             } catch {
                 post(.polishFailed(requestID: requestID, reason: "\(error)"))
             }
         }
         // URLSession's timeout is per read, not for the whole request, so this bounds the wait. When the
         // reply comes first, the reducer ignores this failure because its id is no longer current.
-        let timeout = settings.glmConfig.timeout
+        let timeout = settings.polishTimeout
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
             self?.post(.polishFailed(requestID: requestID, reason: "no reply within \(Int(timeout)) s"))
         }

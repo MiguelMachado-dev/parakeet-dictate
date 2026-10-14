@@ -205,11 +205,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
 
-        let polish = NSMenuItem(title: "Post-process with GLM", action: #selector(togglePostprocess), keyEquivalent: "")
+        // The PC post-processes with its own GLM, whatever provider this Mac uses.
+        let model = settings.engine == .local ? settings.polishProvider.modelName : "GLM"
+        let polish = NSMenuItem(title: "Post-process with \(model)", action: #selector(togglePostprocess), keyEquivalent: "")
         polish.state = settings.postprocess ? .on : .off
         polish.target = self
         if settings.engine == .local && settings.apiKey == nil {
-            polish.title = "Post-process with GLM (add a Z.ai key in Settings)"
+            polish.title = "Post-process with \(model) (add a \(settings.polishProvider.keyName) key in Settings)"
             polish.action = nil
         } else if settings.engine == .server, case .connected(false) = dictation.serverStatus, settings.postprocess {
             polish.title = "Post-process with GLM (the PC has no GLM key)"
