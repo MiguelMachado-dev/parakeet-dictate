@@ -488,9 +488,10 @@ def measure_settings(args: argparse.Namespace, src: Path, stem: Path) -> dict:
 
 
 def run_overlay(args: argparse.Namespace) -> dict:
+    # The package first, as in the app: it may configure numpy's environment before numpy loads.
+    import parakeet_dictate
     import numpy as np
 
-    import parakeet_dictate
     from parakeet_dictate.meter import LevelMeter
     from parakeet_dictate.overlay import premultiplied_bgra
     from parakeet_dictate.overlay_frame import FPS, Phase
@@ -555,6 +556,7 @@ def run_overlay(args: argparse.Namespace) -> dict:
     result["meter"] = {"calls": len(us), "block": block, "p50_us": float(np.percentile(us, 50)),
                        "p95_us": float(np.percentile(us, 95)),
                        "hash": hashlib.sha256(levels.tobytes() + spectrum.tobytes()).hexdigest()}
+    result["threads"] = winstats.threads()
     return result
 
 
@@ -654,15 +656,21 @@ def model_metrics(rows: list[dict]) -> dict[str, list[float]]:
     return metrics
 
 
-def transcript_check(out: Path) -> dict:
-    """Whether every call produced the same text in every process, per side and across sides. Call i of a
-    set gets the same input in every process, so differing text means differing numerics, not input."""
+def transcripts(out: Path) -> dict[tuple[str, int], dict[str, set[str]]]:
+    """The texts each side produced for call i of each set, across its processes."""
     texts: dict[tuple[str, int], dict[str, set[str]]] = {}
     for path in sorted(out.glob("model-*-measured.json")):
         row = json.loads(path.read_text(encoding="utf-8"))
         for set_name, set_rows in row.get("sets", {}).items():
             for i, r in enumerate(set_rows):
                 texts.setdefault((set_name, i), {}).setdefault(row["side"], set()).add(r.get("text", "<error>"))
+    return texts
+
+
+def transcript_check(out: Path) -> dict:
+    """Whether every call produced the same text in every process, per side and across sides. Call i of a
+    set gets the same input in every process, so differing text means differing numerics, not input."""
+    texts = transcripts(out)
     unstable = {name: 0 for sides in texts.values() for name in sides}
     differ = []
     for (set_name, i), sides in texts.items():
@@ -679,7 +687,8 @@ METRICS = {
     "settings": lambda rows: {key: [r[key] for r in rows if key in r] for key in
                               ("window_s", "working_set_mb", "private_working_set_mb", "commit_mb", "threads", "modules")},
     "overlay": lambda rows: {f"{key}.{stat}": [r["render"][key][stat] for r in rows] for key in rows[0]["render"]
-                             for stat in ("p50_ms", "p95_ms")} | {"meter.p50_us": [r["meter"]["p50_us"] for r in rows]},
+                             for stat in ("p50_ms", "p95_ms")} | {"meter.p50_us": [r["meter"]["p50_us"] for r in rows],
+                                                                 "threads": [r["threads"] for r in rows if "threads" in r]},
 }
 
 
@@ -701,6 +710,50 @@ def print_summary(summary: dict) -> None:
     if check := summary.get("model_transcripts"):
         print(f"\ntranscripts: {check['calls']} call positions; varying within a side: {check['calls_varying_within_side']}; "
               f"differing between sides: {check['calls_differing_between_sides']}")
+
+
+def compare(before: Path, after: Path, before_side: str | None, after_side: str | None) -> str:
+    """A Markdown table per kind: each metric's median before and after, with the change."""
+
+    def pick(out: Path, side: str | None) -> tuple[str, dict]:
+        summary = summarize(out)
+        kinds = [kind for kind in summary if kind in METRICS]
+        if len(kinds) != 1:
+            raise SystemExit(f"{out} holds {kinds}; compare one kind at a time")
+        sides = summary[kinds[0]]
+        if side is None:
+            if len(sides) != 1:
+                raise SystemExit(f"{out} holds sides {list(sides)}; name one")
+            side = next(iter(sides))
+        return side, {"kind": kinds[0], **sides[side]}
+
+    def cell(m: dict) -> str:
+        return f"{m['median']:.2f} [{m['min']:.2f}-{m['max']:.2f}]" if m.get("n") else "-"
+
+    (b_name, b), (a_name, a) = pick(before, before_side), pick(after, after_side)
+    if b["kind"] != a["kind"]:
+        raise SystemExit(f"cannot compare {b['kind']} with {a['kind']}")
+    lines = [f"| metric | before: {b_name}, n={b['runs']} | after: {a_name}, n={a['runs']} | change | change % |",
+             "|---|---:|---:|---:|---:|"]
+    for key in dict.fromkeys([*b["metrics"], *a["metrics"]]):
+        mb, ma = b["metrics"].get(key, {}), a["metrics"].get(key, {})
+        if mb.get("n") and ma.get("n"):
+            delta = ma["median"] - mb["median"]
+            percent = f"{100 * delta / mb['median']:+.1f}%" if mb["median"] else "-"
+            change = f"{delta:+.2f}"
+        else:
+            change = percent = "-"
+        lines.append(f"| {key} | {cell(mb)} | {cell(ma)} | {change} | {percent} |")
+    lines.append("")
+    lines.append(f"Failed runs: before {b['failed_runs']}, after {a['failed_runs']}. "
+                 f"Sources: before {', '.join(b['source_digests'])}, after {', '.join(a['source_digests'])}.")
+    if b["kind"] == "model":
+        texts_b, texts_a = transcripts(before), transcripts(after)
+        positions = set(texts_b) & set(texts_a)
+        differ = sorted(p for p in positions if texts_b[p].get(b_name) != texts_a[p].get(a_name))
+        lines.append(f"Transcripts: {len(positions)} call positions compared, {len(differ)} differ"
+                     + (f": {differ}" if differ else "."))
+    return "\n".join(lines)
 
 
 # --- entry ----------------------------------------------------------------------------------------------
@@ -730,12 +783,19 @@ def main() -> int:
     overlay_child.add_argument("--json-out", required=True)
     summary = commands.add_parser("summary")
     summary.add_argument("out")
+    compared = commands.add_parser("compare", help="a Markdown table of medians before and after")
+    compared.add_argument("before")
+    compared.add_argument("after")
+    compared.add_argument("--before-side")
+    compared.add_argument("--after-side")
     args = parser.parse_args()
 
     if args.command == "model-child":
         Path(args.json_out).write_text(json.dumps(run_model(args), ensure_ascii=False), encoding="utf-8")
     elif args.command == "overlay-child":
         Path(args.json_out).write_text(json.dumps(run_overlay(args)), encoding="utf-8")
+    elif args.command == "compare":
+        print(compare(Path(args.before), Path(args.after), args.before_side, args.after_side))
     elif args.command == "summary":
         result = summarize(Path(args.out))
         (Path(args.out) / "summary.json").write_text(json.dumps(result, indent=1), encoding="utf-8")
