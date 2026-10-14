@@ -115,15 +115,20 @@ def load_transcriber(model_dir: Path, provider: str, *, cudnn_conv_algo_search: 
 
 def _load(model_dir: Path, *, cuda: bool, cudnn_conv_algo_search: str | None = None) -> Transcriber:
     t0 = time.perf_counter()
+    options = None
     if cuda:
         onnxruntime.preload_dlls()
         cuda_options = {"cudnn_conv_algo_search": cudnn_conv_algo_search} if cudnn_conv_algo_search else {}
         providers = [(CUDA, cuda_options), "CPUExecutionProvider"]
         quantization = None
+        # The GPU runs the graphs and the CPU only does shape arithmetic, so the default pool of a thread per
+        # core in every session would only spin after each run.
+        options = onnxruntime.SessionOptions()
+        options.intra_op_num_threads = 1
     else:
         providers = ["CPUExecutionProvider"]
         quantization = "int8"
-    model = onnx_asr.load_model(MODEL_NAME, model_dir, quantization=quantization, providers=providers)
+    model = onnx_asr.load_model(MODEL_NAME, model_dir, quantization=quantization, sess_options=options, providers=providers)
     transcriber = Transcriber(model, model.asr._encoder.get_providers()[0], quantization)
     log.info("loaded %s on %s in %.1f s", MODEL_NAME, transcriber.label, time.perf_counter() - t0)
     return transcriber
