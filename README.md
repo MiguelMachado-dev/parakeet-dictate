@@ -106,9 +106,33 @@ With post-processing on:
 - **Esc skips post-processing.** Press Esc while the icon is violet, and the raw transcript is pasted immediately. The app keeps that Esc from reaching the focused app, which is where the text goes.
 - **Failures paste the raw transcript.** If the model does not reply within `timeout_s` (8 s by default), returns an error, refuses, or cannot be reached, the app pastes the raw transcript. It does the same when the reply is incomplete, empty, or much longer than what you said. Each fallback writes a warning to `dictate.log`.
 - **Text still waits for the hotkey.** If you are holding the hotkey when the text is ready, the app pastes it when you release the key. This applies to polished text, to the raw fallback, and to Esc.
-- **Your transcripts go to the selected provider.** The app sends the transcript text over HTTPS to Z.ai or Anthropic. Audio stays on the PC. To keep local dictations entirely local, turn post-processing off. The log records character counts and timings, never the text.
+- **Your transcripts go to the selected provider.** The app sends the transcript text over HTTPS to Z.ai or Anthropic. Audio stays on the PC. To keep local dictations entirely local, turn post-processing off and disable app rules. The log records character counts and timings, never the text.
 
 To turn it off or on, right-click the tray icon and click **Post-process with GLM** or **Post-process with Claude**. The app saves your choice in `tray_choices.json` in the project root and uses it on the next start, ahead of the `enabled` setting in `config.toml`. Without the selected provider's API key, the item is unavailable and names the missing variable, such as **Post-process with Claude (no ANTHROPIC_API_KEY)**.
+
+## App rules
+
+Add `[[app_rules]]` blocks at the end of `config.toml` to give the selected post-processing model instructions for certain apps:
+
+```toml
+[[app_rules]]
+name = "English"
+apps = ["Slack.exe", "Discord.exe"]
+instructions = "Translate the transcript to English."
+
+[[app_rules]]
+name = "Casual"
+apps = ["Slack.exe"]
+instructions = "Make the tone casual and friendly, as in a chat message."
+```
+
+Restart after editing. Use the executable name from **Task Manager > Details**, including `.exe`, without a path or wildcard. Matching ignores case. A browser rule covers the whole browser, including all its tabs. `enabled` defaults to `true`; add `enabled = false` to disable a rule. Rules with empty instructions or no apps do nothing.
+
+The app reads the foreground window's executable when recording ends. If you switch apps while speaking, the app in front at the end decides the rules. Matching rules add up in file order: Slack gets both rules above, Discord gets only English. The instructions stay with that dictation while transcription and post-processing run. If Windows cannot identify the app, no app rule applies.
+
+**An active rule post-processes even when the tray toggle is off.** It uses the provider and key in `[postprocess]`. The model cleans the transcript first, then applies the rules, including translation or a change of tone. Missing keys, errors, refusals, and timeouts paste the raw transcript. Esc skips the rules and pastes the raw text; text still waits for the hotkey to be released.
+
+These rules apply to dictations recorded on this PC. Requests from a Mac use the instructions sent by that Mac; the PC's foreground app has no effect on them.
 
 ## Dictate from a Mac
 

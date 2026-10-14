@@ -7,6 +7,7 @@ from typing import Literal
 
 from pynput.keyboard import Key
 
+from .app_rules import AppRule
 from .styles import DEFAULT_STYLE, STYLES
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -85,6 +86,7 @@ class Config:
     model_dir: Path = ROOT / "models" / "parakeet-tdt-0.6b-v3"
     postprocess: PostprocessConfig = PostprocessConfig()
     server: ServerConfig = ServerConfig()
+    app_rules: tuple[AppRule, ...] = ()
 
     @property
     def hotkey_vk(self) -> int:
@@ -169,7 +171,33 @@ def _parse(name: str, value: object) -> object:
             if unknown:
                 raise ConfigError(f"unknown server setting(s) {sorted(unknown)}")
             return ServerConfig(**{key: _parse_server(key, item) for key, item in value.items()})
+        case "app_rules":
+            if not isinstance(value, list):
+                raise ConfigError("app_rules must be an array of tables, [[app_rules]]")
+            return tuple(_parse_app_rule(rule, index) for index, rule in enumerate(value, 1))
     raise AssertionError(name)
+
+
+def _parse_app_rule(value: object, index: int) -> AppRule:
+    label = f"app_rules[{index}]"
+    if not isinstance(value, dict):
+        raise ConfigError(f"{label} must be a table")
+    unknown = value.keys() - {f.name for f in fields(AppRule)}
+    if unknown:
+        raise ConfigError(f"unknown {label} setting(s) {sorted(unknown)}")
+    name, instructions, apps, enabled = (value.get("name"), value.get("instructions"), value.get("apps", []), value.get("enabled", True))
+    if not isinstance(name, str) or not name.strip():
+        raise ConfigError(f"{label}.name must be a non-empty string")
+    if not isinstance(instructions, str):
+        raise ConfigError(f"{label}.instructions must be a string")
+    if type(enabled) is not bool:
+        raise ConfigError(f"{label}.enabled must be true or false")
+    if not isinstance(apps, list) or any(
+        not isinstance(app, str) or app != app.strip() or len(app) <= 4
+        or not app.casefold().endswith(".exe") or any(c in app for c in '\\/:*?"<>|\0') for app in apps
+    ):
+        raise ConfigError(f"{label}.apps must be executable names such as ['Slack.exe'], without paths or wildcards")
+    return AppRule(name=name, instructions=instructions, apps=tuple(apps), enabled=enabled)
 
 
 def _parse_server(name: str, value: object) -> object:

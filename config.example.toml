@@ -26,8 +26,8 @@
 # Model folder, relative to the project root or absolute.
 # model_dir = "models/parakeet-tdt-0.6b-v3"
 
-# Keep the two tables, [postprocess] and [server], at the end of the file: every
-# setting after a [table] line belongs to that table, until the next [table] line.
+# Keep [postprocess], [server], and [[app_rules]] after the general settings: every
+# setting after a table header belongs to that table, until the next header.
 
 # Post-processing: send each transcript to GLM through Z.ai or Claude through Anthropic
 # to remove fillers and fix punctuation before pasting. Audio stays on this PC.
@@ -74,3 +74,15 @@
 
 # The IPv4 address to listen on. "0.0.0.0" listens on every network adapter.
 # bind = "0.0.0.0"
+
+# App rules for local dictations. Copy the whole [[app_rules]] block for another rule.
+# Uses the executable of the foreground window when recording ends, case-insensitively.
+# Find executable names in Task Manager > Details. No paths or wildcards.
+# Matching, enabled rules are combined in file order and post-process even with the
+# tray toggle off. They still need the selected provider's key. Restart after editing.
+# This example stays disabled until enabled = true.
+# [[app_rules]]
+# name = "Translate to English"
+# apps = ["Slack.exe", "Discord.exe"]
+# instructions = "Translate the transcript to English."
+# enabled = false

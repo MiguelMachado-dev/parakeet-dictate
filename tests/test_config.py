@@ -2,6 +2,7 @@ import re
 
 import pytest
 
+from parakeet_dictate.app_rules import AppRule
 from parakeet_dictate.config import (
     ROOT,
     Config,
@@ -13,13 +14,15 @@ from parakeet_dictate.config import (
 )
 
 
-def test_example_config_uncommented_matches_defaults(tmp_path):
+def test_example_config_uncommented_uses_defaults_and_a_disabled_example_rule(tmp_path):
     example = (ROOT / "config.example.toml").read_text(encoding="utf-8")
-    settings = re.findall(r"^# (\w+ = .+|\[\w+\])$", example, flags=re.MULTILINE)
-    assert len(settings) == 21
+    settings = re.findall(r"^# (\w+ = .+|\[\w+\]|\[\[\w+\]\])$", example, flags=re.MULTILINE)
+    assert len(settings) == 26
     path = tmp_path / "config.toml"
     path.write_text("\n".join(settings), encoding="utf-8")
-    assert load_config(path) == Config()
+    assert load_config(path) == Config(app_rules=(
+        AppRule("Translate to English", "Translate the transcript to English.", ("Slack.exe", "Discord.exe"), enabled=False),
+    ))
 
 
 def test_overrides_are_applied(tmp_path):
@@ -160,3 +163,36 @@ def test_provider_keys_stay_separate_and_environment_takes_priority(tmp_path, mo
     assert load_api_key(env, name="ANTHROPIC_API_KEY") == "claude-file"
     env.write_text('ZAI_API_KEY = "zai-file"\n', encoding="utf-8")
     assert load_api_key(env, name="ANTHROPIC_API_KEY") is None
+
+
+def test_app_rules_load_in_order_beside_postprocess_and_server_settings(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[postprocess]\nprovider = "anthropic"\nenabled = false\n[server]\nport = 8766\n'
+                    '[[app_rules]]\nname = "English"\napps = ["Slack.exe", "outlook.exe"]\n'
+                    'instructions = "Translate to English."\n'
+                    '[[app_rules]]\nname = "Casual"\napps = ["Slack.exe"]\n'
+                    'instructions = "Keep it casual."\nenabled = false\n', encoding="utf-8")
+    config = load_config(path)
+    assert config.postprocess == PostprocessConfig(provider="anthropic", enabled=False)
+    assert config.server.port == 8766
+    assert config.app_rules == (
+        AppRule("English", "Translate to English.", ("Slack.exe", "outlook.exe")),
+        AppRule("Casual", "Keep it casual.", ("Slack.exe",), enabled=False),
+    )
+
+
+@pytest.mark.parametrize("rule", [
+    'app_rules = "on"', 'app_rules = ["Slack.exe"]',
+    '[[app_rules]]\nname = "English"',
+    '[[app_rules]]\nname = ""\ninstructions = "Translate."',
+    '[[app_rules]]\nname = "English"\ninstructions = 42',
+    '[[app_rules]]\nname = "English"\ninstructions = "Translate."\nenabled = "yes"',
+    '[[app_rules]]\nname = "English"\ninstructions = "Translate."\napp = ["Slack.exe"]',
+    *[f'[[app_rules]]\nname = "English"\ninstructions = "Translate."\napps = {apps}'
+      for apps in ['"Slack.exe"', '[1]', '["Slack"]', '["C:/Slack.exe"]', '["*.exe"]', '[" Slack.exe"]']],
+])
+def test_invalid_app_rules_are_rejected(tmp_path, rule):
+    path = tmp_path / "config.toml"
+    path.write_text(rule, encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load_config(path)

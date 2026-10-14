@@ -24,6 +24,7 @@ from PIL import Image, ImageDraw
 from pynput import keyboard
 
 from . import inject
+from .app_rules import combined_instructions
 from .config import (
     LOG_PATH,
     OVERLAY_CHOICES,
@@ -35,6 +36,7 @@ from .config import (
     load_api_key,
     load_config,
 )
+from .foreground import foreground_executable
 from .overlay import Overlay
 from .overlay_frame import Renderer
 from .polish import Polisher, PolishError, create_polisher
@@ -110,6 +112,7 @@ class Dictation:
         on_transition: Callable[[Transition], None] = lambda transition: None,
         polisher: Polisher | None = None,
         polish_enabled: Callable[[], bool] = lambda: True,
+        foreground_app: Callable[[], str | None] = foreground_executable,
     ) -> None:
         self._config = config
         self._recorder = recorder
@@ -119,6 +122,8 @@ class Dictation:
         self._on_transition = on_transition
         self._polish_client = polisher
         self._polish_enabled = polish_enabled
+        self._foreground_app = foreground_app
+        self._instructions = ""
         self._events: queue.Queue[Event | None] = queue.Queue()
         self._state: State = Idle()
         self._released_at = 0.0
@@ -213,6 +218,7 @@ class Dictation:
     def _execute(self, effect: Effect) -> None:
         match effect:
             case StartRecording():
+                self._instructions = self._read_rules()
                 try:
                     self._recorder.start()
                 except Exception as e:
@@ -223,6 +229,9 @@ class Dictation:
                     if self._polish_on():
                         self._polisher.submit(self._polish_client.preconnect)
             case StopAndTranscribe():
+                self._instructions = self._read_rules()
+                if self._instructions and self._polish_client is None:
+                    log.warning("app rules need %s; pasting the raw transcript", self._config.postprocess.api_key_name)
                 try:
                     audio = self._recorder.stop()
                 except Exception as e:
@@ -231,6 +240,7 @@ class Dictation:
                 else:
                     self._worker.submit(self._transcribe, audio)
             case DiscardRecording():
+                self._instructions = ""
                 self._recorder.discard()
             case Paste(text):
                 since_release_ms = (time.perf_counter() - self._released_at) * 1000
@@ -244,7 +254,8 @@ class Dictation:
             case PlaySound(cue):
                 self._cues.play(cue)
             case Polish(text, request_id):
-                self._polisher.submit(self._polish, text, request_id)
+                # Capture now: Esc can start another dictation before a queued request runs.
+                self._polisher.submit(self._polish, text, request_id, self._instructions)
                 # httpx times each network step separately and never times the DNS lookup, so this
                 # timer bounds the whole wait. When the request finishes first, the reducer ignores
                 # the timer's PolishFailed because its id is no longer current.
@@ -255,11 +266,16 @@ class Dictation:
                 timer.start()
 
     def _polish_on(self) -> bool:
-        return self._polish_client is not None and self._polish_enabled()
+        return self._polish_client is not None and (self._polish_enabled() or bool(self._instructions))
 
-    def _polish(self, text: str, request_id: int) -> None:
+    def _read_rules(self) -> str:
+        if not self._config.app_rules:
+            return ""
+        return combined_instructions(self._config.app_rules, self._foreground_app())
+
+    def _polish(self, text: str, request_id: int, instructions: str) -> None:
         try:
-            result = Polished(request_id, self._polish_client.polish(text))
+            result = Polished(request_id, self._polish_client.polish(text, instructions))
         except PolishError as e:
             result = PolishFailed(request_id, str(e))
         except Exception as e:

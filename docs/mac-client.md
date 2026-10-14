@@ -51,6 +51,8 @@ Request:
 - Field `instructions`, optional: UTF-8 text that the PC's selected provider follows for this dictation only, after its usual cleanup rules and taking precedence over them, such as `Translate to English.` The Mac sends the rules set for the app the text goes to. It only matters when the text is post-processed, so send `postprocess=true` with it. An older PC ignores it.
 - Fields `model`, `language`, `response_format` and `temperature` are accepted and ignored.
 
+The PC's local `[[app_rules]]` do not apply to these requests. Only the instructions sent by the Mac apply, regardless of which app is in front on the PC.
+
 Responses:
 
 | Status | When | Body |
