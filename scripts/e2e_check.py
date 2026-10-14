@@ -136,9 +136,9 @@ class CountingGlm:
     def preconnect(self) -> None:
         self.glm.preconnect()
 
-    def polish(self, raw: str) -> str:
+    def polish(self, raw: str, instructions: str = "") -> str:
         try:
-            text = self.glm.polish(raw)
+            text = self.glm.polish(raw, instructions)
         except Exception as e:
             self.finished.append(f"failed: {e}")
             raise
@@ -384,7 +384,7 @@ def main() -> int:
             paste=guarded_paste,
             cues=Cues(enabled=False),
             on_transition=on_transition,
-            glm=glm_client,
+            polisher=glm_client,
             polish_enabled=lambda: enabled,
         )
         dictation.start()

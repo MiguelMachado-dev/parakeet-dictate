@@ -18,7 +18,7 @@ enum Engine: String, CaseIterable, Identifiable {
     }
 }
 
-/// Who post-processes on this Mac. The PC post-processes with its own GLM, whatever is chosen here.
+/// Who post-processes on this Mac. The PC uses its own provider, whatever is chosen here.
 enum PolishProvider: String, CaseIterable, Identifiable {
     case zai
     case anthropic

@@ -1,4 +1,4 @@
-"""The server for Mac: an HTTP API that lets another machine dictate through this PC's model and GLM.
+"""The server for Mac: an HTTP API that lets another machine dictate through this PC's models.
 docs/mac-client.md is the contract."""
 
 import email.parser
@@ -23,7 +23,7 @@ from urllib.parse import urlsplit
 import numpy as np
 
 from .config import ServerConfig
-from .polish import GlmClient, PolishError
+from .polish import Polisher, PolishError
 from .recorder import Audio
 from .transcriber import SharedModel
 
@@ -57,14 +57,14 @@ class DictationServer:
         config: ServerConfig,
         *,
         model: SharedModel,
-        glm: GlmClient | None,
+        polisher: Polisher | None,
         polish_enabled: Callable[[], bool],
         timeout_s: float,
         token_path: Path,
     ) -> None:
         self._config = config
         self._model = model
-        self._glm = glm
+        self._polish_client = polisher
         self._polish_enabled = polish_enabled
         self._timeout_s = timeout_s
         self._token_path = token_path
@@ -86,7 +86,7 @@ class DictationServer:
             return
         self.token = read_token(self._token_path)
         httpd = _HttpServer((self._config.bind, self._config.port), self)
-        # Several workers, so a GLM request still running past its timeout never delays the next one.
+        # Several workers, so a post-processing request past its timeout never delays the next one.
         self._polisher = ThreadPoolExecutor(max_workers=4, thread_name_prefix="server-polish")
         # stop() waits for the loop to poll; the default half second would stall the tray's click.
         threading.Thread(target=httpd.serve_forever, args=(0.1,), name="server", daemon=True).start()
@@ -117,23 +117,23 @@ class DictationServer:
         return self._model.ready
 
     def polish_on(self) -> bool:
-        return self._glm is not None and self._polish_enabled()
+        return self._polish_client is not None and self._polish_enabled()
 
     def health(self) -> dict:
         on = self.polish_on()
         if on:
-            self._polisher.submit(self._glm.preconnect)
+            self._polisher.submit(self._polish_client.preconnect)
         return {"status": "ok", "postprocess": on}
 
     def transcribe(self, audio: Audio, postprocess: bool | None, instructions: str, metrics: dict[str, float]) -> dict:
         t0 = time.perf_counter()
         raw = self._model.transcribe(audio)
         metrics["asr_ms"] = (time.perf_counter() - t0) * 1000
-        polish = self.polish_on() if postprocess is None else postprocess and self._glm is not None
+        polish = self.polish_on() if postprocess is None else postprocess and self._polish_client is not None
         if not raw or not polish:
             return {"text": raw, "raw": raw, "polished": False}
         t0 = time.perf_counter()
-        future = self._polisher.submit(self._glm.polish, raw, instructions)
+        future = self._polisher.submit(self._polish_client.polish, raw, instructions)
         try:
             text = future.result(timeout=self._timeout_s)
         except TimeoutError:

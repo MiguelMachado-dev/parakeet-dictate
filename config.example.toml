@@ -29,28 +29,39 @@
 # Keep the two tables, [postprocess] and [server], at the end of the file: every
 # setting after a [table] line belongs to that table, until the next [table] line.
 
-# Post-processing: send each transcript to GLM through Z.ai to remove fillers and fix
-# punctuation before pasting. Needs ZAI_API_KEY in the environment or in .env.
+# Post-processing: send each transcript to GLM through Z.ai or Claude through Anthropic
+# to remove fillers and fix punctuation before pasting. Audio stays on this PC.
 # [postprocess]
 
-# Initial state of the tray's "Post-process with GLM" item. Once you toggle the item,
+# Initial state of the tray's "Post-process with GLM/Claude" item. Once you toggle it,
 # the tray choice is saved in tray_choices.json and wins over this setting.
 # enabled = true
 
+# "zai" needs ZAI_API_KEY; "anthropic" needs ANTHROPIC_API_KEY, in the environment or .env.
+# provider = "zai"
+
+# Omit model and endpoint to follow the provider: glm-5.3 and the Z.ai URL below, or
+# claude-haiku-5-5 and https://api.anthropic.com/v1/messages. Claude also accepts claude-sonnet-5-5.
+# Remove old model/endpoint overrides when switching provider.
 # model = "glm-5.3"
 # endpoint = "https://api.z.ai/api/coding/paas/v4/chat/completions"
 
-# "low", "high", or "max". GLM-5.3 always reasons; higher effort is slower.
+# Z.ai: "low", "high", or "max". GLM-5.3 always reasons; higher effort is slower.
 # reasoning_effort = "low"
 
-# Seconds to wait for GLM before pasting the raw transcript.
+# Anthropic: thinking off is fastest. "xhigh" and "max" effort require thinking = true.
+# effort accepts "low", "medium", "high", "xhigh", or "max".
+# thinking = false
+# effort = "low"
+
+# Seconds to wait for post-processing before pasting the raw transcript.
 # timeout_s = 8.0
 
 # Appended to the system prompt. List names and jargon to spell correctly, for example
 # "Names: Miguel, João. Terms: Parakeet, Z.ai, GLM."
 # extra_instructions = ""
 
-# Server for Mac: lets a Mac on the same network dictate through this PC's model and GLM.
+# Server for Mac: lets a Mac dictate through this PC's model and selected post-processor.
 # See docs/mac-client.md. The token is in server_token.txt, created on first start.
 # [server]
 

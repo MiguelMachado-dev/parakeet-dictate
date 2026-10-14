@@ -31,12 +31,13 @@ from .config import (
     TRAY_CHOICES_PATH,
     Config,
     ConfigError,
+    PostprocessConfig,
     load_api_key,
     load_config,
 )
 from .overlay import Overlay
 from .overlay_frame import Renderer
-from .polish import GlmClient, PolishError
+from .polish import Polisher, PolishError, create_polisher
 from .recorder import Audio, Recorder, default_input_rate
 from .reducer import (
     AwaitingRelease,
@@ -107,7 +108,7 @@ class Dictation:
         paste: Callable[[str], None] = inject.paste,
         cues: "Cues",
         on_transition: Callable[[Transition], None] = lambda transition: None,
-        glm: GlmClient | None = None,
+        polisher: Polisher | None = None,
         polish_enabled: Callable[[], bool] = lambda: True,
     ) -> None:
         self._config = config
@@ -116,7 +117,7 @@ class Dictation:
         self._paste = paste
         self._cues = cues
         self._on_transition = on_transition
-        self._glm = glm
+        self._polish_client = polisher
         self._polish_enabled = polish_enabled
         self._events: queue.Queue[Event | None] = queue.Queue()
         self._state: State = Idle()
@@ -220,7 +221,7 @@ class Dictation:
                 else:
                     log.info("recording from %r", self._recorder.device_name)
                     if self._polish_on():
-                        self._polisher.submit(self._glm.preconnect)
+                        self._polisher.submit(self._polish_client.preconnect)
             case StopAndTranscribe():
                 try:
                     audio = self._recorder.stop()
@@ -254,11 +255,11 @@ class Dictation:
                 timer.start()
 
     def _polish_on(self) -> bool:
-        return self._glm is not None and self._polish_enabled()
+        return self._polish_client is not None and self._polish_enabled()
 
     def _polish(self, text: str, request_id: int) -> None:
         try:
-            result = Polished(request_id, self._glm.polish(text))
+            result = Polished(request_id, self._polish_client.polish(text))
         except PolishError as e:
             result = PolishFailed(request_id, str(e))
         except Exception as e:
@@ -423,9 +424,10 @@ class Tray:
         on_quit: Callable[[], None],
         choices: TrayChoices,
         overlay: ActiveOverlay,
-        glm_available: bool,
+        polish_available: bool,
         server: DictationServer,
         cues: Cues,
+        postprocess: PostprocessConfig = PostprocessConfig(),
     ) -> None:
         self.provider = ""
         self._choices = choices
@@ -438,10 +440,10 @@ class Tray:
             "Parakeet Dictate: loading model",
             menu=pystray.Menu(
                 pystray.MenuItem(
-                    "Post-process with GLM" if glm_available else "Post-process with GLM (no ZAI_API_KEY)",
+                    f"Post-process with {postprocess.label}" + ("" if polish_available else f" (no {postprocess.api_key_name})"),
                     lambda: self._toggle_postprocess(),
-                    checked=lambda item: glm_available and choices.postprocess,
-                    enabled=glm_available,
+                    checked=lambda item: polish_available and choices.postprocess,
+                    enabled=polish_available,
                 ),
                 pystray.MenuItem("Overlay", pystray.Menu(*map(self._overlay_item, OVERLAY_CHOICES))),
                 pystray.MenuItem("Server for Mac", lambda: self._toggle_server(), checked=lambda item: server.running),
@@ -615,8 +617,8 @@ def main() -> int:
     # Auto-reset, so each later launch wakes the watcher once.
     launch_event = kernel32.CreateEventW(None, False, False, LAUNCH_EVENT_NAME)
     hint = f"Hold {config.hotkey_label} to dictate."
-    api_key = load_api_key()
-    glm = GlmClient(config.postprocess, api_key) if api_key else None
+    api_key = load_api_key(name=config.postprocess.api_key_name)
+    polisher = create_polisher(config.postprocess, api_key) if api_key else None
     choices = TrayChoices(config, TRAY_CHOICES_PATH)
     cues = Cues(config.sounds)
     recorder = Recorder()
@@ -625,7 +627,7 @@ def main() -> int:
     server = DictationServer(
         config.server,
         model=model,
-        glm=glm,
+        polisher=polisher,
         polish_enabled=lambda: choices.postprocess,
         timeout_s=config.postprocess.timeout_s,
         token_path=SERVER_TOKEN_PATH,
@@ -634,9 +636,10 @@ def main() -> int:
         on_quit=lambda: tray.icon.stop(),
         choices=choices,
         overlay=overlay,
-        glm_available=glm is not None,
+        polish_available=polisher is not None,
         server=server,
         cues=cues,
+        postprocess=config.postprocess,
     )
     # Before the model loads, so a Mac sees 503 "still loading" instead of no server.
     if choices.server:
@@ -663,16 +666,19 @@ def main() -> int:
                 transcriber=model,
                 cues=cues,
                 on_transition=on_transition,
-                glm=glm,
+                polisher=polisher,
                 polish_enabled=lambda: choices.postprocess,
             )
             dictation.start()
             running.append(dictation)
             tray.show_state(Idle())
-            if glm is None:
-                postprocessing = "unavailable, no ZAI_API_KEY in the environment or .env"
+            if polisher is None:
+                postprocessing = f"unavailable, no {config.postprocess.api_key_name} in the environment or .env"
             else:
-                settings = f"{config.postprocess.model}, reasoning effort {config.postprocess.reasoning_effort}"
+                effort = config.postprocess.effort if config.postprocess.provider == "anthropic" else config.postprocess.reasoning_effort
+                settings = f"{config.postprocess.model}, effort {effort}"
+                if config.postprocess.provider == "anthropic":
+                    settings += f", thinking {'on' if config.postprocess.thinking else 'off'}"
                 postprocessing = f"{'on' if choices.postprocess else 'off'} ({settings})"
             log.info(
                 "ready: provider %s, hotkey %s, post-processing %s, server for Mac %s, overlay %s",
@@ -709,8 +715,8 @@ def main() -> int:
     for dictation in running:
         dictation.stop()
     overlay.close()
-    if glm is not None:
-        glm.close()
+    if polisher is not None:
+        polisher.close()
     kernel32.CloseHandle(quit_event)
     kernel32.CloseHandle(launch_event)
     kernel32.CloseHandle(mutex)

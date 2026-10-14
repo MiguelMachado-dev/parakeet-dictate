@@ -16,7 +16,7 @@ from parakeet_dictate.config import (
 def test_example_config_uncommented_matches_defaults(tmp_path):
     example = (ROOT / "config.example.toml").read_text(encoding="utf-8")
     settings = re.findall(r"^# (\w+ = .+|\[\w+\])$", example, flags=re.MULTILINE)
-    assert len(settings) == 18
+    assert len(settings) == 21
     path = tmp_path / "config.toml"
     path.write_text("\n".join(settings), encoding="utf-8")
     assert load_config(path) == Config()
@@ -116,3 +116,47 @@ def test_api_key_missing(tmp_path, monkeypatch):
     assert load_api_key(tmp_path / ".env") is None
     (tmp_path / ".env").write_text("ZAI_API_KEY=\n", encoding="utf-8")
     assert load_api_key(tmp_path / ".env") is None
+
+
+def test_anthropic_selects_its_own_defaults_and_key(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[postprocess]\nprovider = "anthropic"\n', encoding="utf-8")
+    config = load_config(path).postprocess
+    assert config == PostprocessConfig(provider="anthropic")
+    assert config.model == "claude-haiku-5-5"
+    assert config.endpoint == "https://api.anthropic.com/v1/messages"
+    assert (config.label, config.api_key_name, config.thinking, config.effort) == ("Claude", "ANTHROPIC_API_KEY", False, "low")
+
+
+def test_claude_settings_override_defaults(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[postprocess]\nprovider = "anthropic"\nmodel = "claude-sonnet-5-5"\n'
+                    'endpoint = "http://localhost:5000/messages"\nthinking = true\neffort = "max"\n', encoding="utf-8")
+    config = load_config(path).postprocess
+    assert (config.model, config.endpoint, config.thinking, config.effort) == (
+        "claude-sonnet-5-5", "http://localhost:5000/messages", True, "max",
+    )
+
+
+@pytest.mark.parametrize("setting", [
+    'provider = "claude"', 'provider = true', 'thinking = "off"', 'effort = "extreme"',
+    'provider = "anthropic"\neffort = "max"', 'provider = "anthropic"\neffort = "xhigh"',
+])
+def test_invalid_provider_settings_fail_before_a_request(tmp_path, setting):
+    path = tmp_path / "config.toml"
+    path.write_text(f"[postprocess]\n{setting}\n", encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load_config(path)
+
+
+def test_provider_keys_stay_separate_and_environment_takes_priority(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text('ZAI_API_KEY = "zai-file"\nANTHROPIC_API_KEY = "claude-file"\n', encoding="utf-8-sig")
+    monkeypatch.setenv("ZAI_API_KEY", "zai-env")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", " claude-env ")
+    assert load_api_key(env, name="ANTHROPIC_API_KEY") == "claude-env"
+    assert load_api_key(env) == "zai-env"
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    assert load_api_key(env, name="ANTHROPIC_API_KEY") == "claude-file"
+    env.write_text('ZAI_API_KEY = "zai-file"\n', encoding="utf-8")
+    assert load_api_key(env, name="ANTHROPIC_API_KEY") is None

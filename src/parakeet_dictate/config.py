@@ -38,11 +38,32 @@ class ConfigError(ValueError):
 @dataclass(frozen=True)
 class PostprocessConfig:
     enabled: bool = True
-    model: str = "glm-5.3"
-    endpoint: str = "https://api.z.ai/api/coding/paas/v4/chat/completions"
+    provider: Literal["zai", "anthropic"] = "zai"
+    model: str = ""
+    endpoint: str = ""
     reasoning_effort: Literal["low", "high", "max"] = "low"
+    thinking: bool = False
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
     timeout_s: float = 8.0
     extra_instructions: str = ""
+
+    def __post_init__(self) -> None:
+        anthropic = self.provider == "anthropic"
+        if not self.model:
+            object.__setattr__(self, "model", "claude-haiku-5-5" if anthropic else "glm-5.3")
+        if not self.endpoint:
+            object.__setattr__(self, "endpoint", "https://api.anthropic.com/v1/messages" if anthropic else
+                               "https://api.z.ai/api/coding/paas/v4/chat/completions")
+        if anthropic and not self.thinking and self.effort in ("xhigh", "max"):
+            raise ConfigError("postprocess.effort above 'high' requires thinking = true for Anthropic")
+
+    @property
+    def label(self) -> str:
+        return "Claude" if self.provider == "anthropic" else "GLM"
+
+    @property
+    def api_key_name(self) -> str:
+        return "ANTHROPIC_API_KEY" if self.provider == "anthropic" else "ZAI_API_KEY"
 
 
 @dataclass(frozen=True)
@@ -91,14 +112,14 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
     return Config(**values)
 
 
-def load_api_key(env_path: Path = ENV_PATH) -> str | None:
-    if key := os.environ.get("ZAI_API_KEY", "").strip():
+def load_api_key(env_path: Path = ENV_PATH, *, name: str = "ZAI_API_KEY") -> str | None:
+    if key := os.environ.get(name, "").strip():
         return key
     if not env_path.exists():
         return None
     for line in env_path.read_text(encoding="utf-8-sig").splitlines():
-        name, _, value = line.partition("=")
-        if name.strip() == "ZAI_API_KEY":
+        entry, _, value = line.partition("=")
+        if entry.strip() == name:
             return value.strip().strip("\"'") or None
     return None
 
@@ -173,9 +194,13 @@ def _parse_server(name: str, value: object) -> object:
 
 def _parse_postprocess(name: str, value: object) -> object:
     match name:
-        case "enabled":
+        case "enabled" | "thinking":
             if type(value) is not bool:
-                raise ConfigError(f"postprocess.enabled must be true or false; got {value!r}")
+                raise ConfigError(f"postprocess.{name} must be true or false; got {value!r}")
+            return value
+        case "provider":
+            if value not in ("zai", "anthropic"):
+                raise ConfigError(f"postprocess.provider must be 'zai' or 'anthropic'; got {value!r}")
             return value
         case "model" | "endpoint":
             if not isinstance(value, str) or not value.strip():
@@ -186,6 +211,10 @@ def _parse_postprocess(name: str, value: object) -> object:
         case "reasoning_effort":
             if value not in ("low", "high", "max"):
                 raise ConfigError(f"postprocess.reasoning_effort must be 'low', 'high', or 'max'; got {value!r}")
+            return value
+        case "effort":
+            if value not in ("low", "medium", "high", "xhigh", "max"):
+                raise ConfigError(f"postprocess.effort must be 'low', 'medium', 'high', 'xhigh', or 'max'; got {value!r}")
             return value
         case "timeout_s":
             if type(value) not in (int, float) or not 0 < value <= 60:

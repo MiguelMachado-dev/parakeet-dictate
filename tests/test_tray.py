@@ -16,7 +16,8 @@ import pytest
 
 from parakeet_dictate import app
 from parakeet_dictate.app import ActiveOverlay, Tray, TrayChoices
-from parakeet_dictate.config import Config, ServerConfig
+from parakeet_dictate.config import Config, PostprocessConfig, ServerConfig
+from parakeet_dictate.polish import ClaudeClient, create_polisher
 from parakeet_dictate.reducer import Cue, HotkeyDown, Idle, Mode, Recording, Transition
 from parakeet_dictate.server import DictationServer
 from parakeet_dictate.styles import STYLES
@@ -130,7 +131,7 @@ def free_port() -> int:
 
 def local_server(tmp_path, port: int = 0) -> DictationServer:
     return DictationServer(
-        ServerConfig(bind="127.0.0.1", port=port), model=SharedModel(), glm=None, polish_enabled=lambda: False,
+        ServerConfig(bind="127.0.0.1", port=port), model=SharedModel(), polisher=None, polish_enabled=lambda: False,
         timeout_s=1.0, token_path=tmp_path / "server_token.txt",
     )
 
@@ -138,7 +139,7 @@ def local_server(tmp_path, port: int = 0) -> DictationServer:
 def make_tray(tmp_path, overlay: ActiveOverlay, server: DictationServer | None = None, cues: FakeCues | None = None) -> Tray:
     choices = TrayChoices(Config(), tmp_path / "tray_choices.json")
     return Tray(
-        lambda: None, choices, overlay, glm_available=False, server=server or local_server(tmp_path), cues=cues or FakeCues()
+        lambda: None, choices, overlay, polish_available=False, server=server or local_server(tmp_path), cues=cues or FakeCues()
     )
 
 
@@ -231,7 +232,7 @@ def fake_main(tmp_path, monkeypatch, caplog) -> SimpleNamespace:
         monkeypatch.setattr(app, name, f"{getattr(app, name)}-test-{tag}")
     monkeypatch.setattr(app, "TRAY_CHOICES_PATH", tmp_path / "tray_choices.json")
     monkeypatch.setattr(app, "SERVER_TOKEN_PATH", tmp_path / "server_token.txt")
-    monkeypatch.setattr(app, "load_api_key", lambda: None)
+    monkeypatch.setattr(app, "load_api_key", lambda **kwargs: None)
     monkeypatch.setattr(app, "default_input_rate", lambda: 16_000)
     harness = SimpleNamespace(
         config=Config(overlay="off", sounds=False), windows=Windows(), dictations=[], notifications=[]
@@ -305,6 +306,49 @@ def test_main_wires_the_tray_menu_to_the_overlay_and_the_dictation(fake_main, tm
     (window,) = fake_main.windows.opened
     assert (window.renderer, window.notified, window.closed) == (STYLES["bars"], [RECORDING, RECORDING], True)
     assert json.loads((tmp_path / "tray_choices.json").read_text(encoding="utf-8")) == {"overlay": "bars"}
+
+
+@pytest.mark.parametrize("available", [True, False])
+def test_main_selects_claude_for_local_and_server_dictations_and_names_its_key(fake_main, monkeypatch, available):
+    fake_main.config = replace(fake_main.config, postprocess=PostprocessConfig(provider="anthropic"))
+    requested, clients = [], []
+
+    def key(*, name):
+        requested.append(name)
+        return "test-key" if available else None
+
+    def client(config, api_key):
+        result = create_polisher(config, api_key, transport=httpx2.MockTransport(lambda r: httpx2.Response(500)))
+        clients.append(result)
+        return result
+
+    monkeypatch.setattr(app, "load_api_key", key)
+    monkeypatch.setattr(app, "create_polisher", client)
+    servers = []
+
+    def server(*args, **kwargs):
+        result = DictationServer(*args, **kwargs)
+        servers.append(result)
+        return result
+
+    monkeypatch.setattr(app, "DictationServer", server)
+
+    def during(icon):
+        item = icon.menu.items[0]
+        assert item.text == "Post-process with Claude" + ("" if available else " (no ANTHROPIC_API_KEY)")
+        assert item.enabled == item.checked == available
+        local = fake_main.dictations[0]
+        assert local["polisher"] is servers[0]._polish_client
+        if available:
+            assert isinstance(local["polisher"], ClaudeClient)
+            item(icon)
+            assert not local["polish_enabled"]() and not servers[0].polish_on()
+        else:
+            assert local["polisher"] is None
+
+    assert fake_main.run(during=during) == 0
+    assert requested == ["ANTHROPIC_API_KEY"]
+    assert all(c._client.is_closed for c in clients)
 
 
 def test_a_second_launch_exits_and_the_running_app_says_it_is_already_running(fake_main):

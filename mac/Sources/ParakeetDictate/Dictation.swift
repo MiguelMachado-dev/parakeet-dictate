@@ -85,7 +85,7 @@ final class Dictation {
         }
     }
 
-    /// Updates the PC's state in the menu. The PC also warms its connection to GLM.
+    /// Updates the PC's state in the menu. The PC also warms its post-processing connection.
     func checkServer() {
         guard settings.engine == .server, let server else {
             return
@@ -257,7 +257,7 @@ final class Dictation {
                 checkServer()
             }
             if postprocess && !reply.polished && !reply.text.isEmpty {
-                Log.warning("the PC returned the raw transcript: its GLM failed or has no key")
+                Log.warning("the PC returned the raw transcript: its post-processor failed or has no key")
             }
             return reply.text
         } catch let error as ServerError {

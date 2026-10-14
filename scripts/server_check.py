@@ -1,6 +1,6 @@
 """Run the server for Mac on 127.0.0.1 with the real model and post the TTS fixtures through curl.exe.
 
-Checks the raw transcript, then the GLM path when a ZAI_API_KEY is found, then a 44.1 kHz stereo copy
+Checks the raw transcript, then the selected post-processor when its key is found, then a 44.1 kHz stereo copy
 of the English fixture. Prints timings and the server's own log lines; never the key or the token.
 """
 
@@ -19,8 +19,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_model import word_error_rate, words  # noqa: E402
 
-from parakeet_dictate.config import ENV_PATH, Config, ServerConfig, load_api_key  # noqa: E402
-from parakeet_dictate.polish import GlmClient  # noqa: E402
+from parakeet_dictate.config import ENV_PATH, Config, ServerConfig, load_api_key, load_config  # noqa: E402
+from parakeet_dictate.polish import create_polisher  # noqa: E402
 from parakeet_dictate.server import DictationServer  # noqa: E402
 from parakeet_dictate.transcriber import SharedModel, load_transcriber, resample  # noqa: E402
 
@@ -58,15 +58,15 @@ def main() -> int:
     print(f"model on {transcriber.label}, loaded and warmed in {time.perf_counter() - t0:.1f} s")
     model = SharedModel()
     model.load(transcriber)
-    api_key = load_api_key(args.env_file)
-    print(f"ZAI_API_KEY {'found' if api_key else 'not found; skipping the GLM pass'}")
-    config = Config()
-    glm = GlmClient(config.postprocess, api_key) if api_key else None
+    config = load_config()
+    api_key = load_api_key(args.env_file, name=config.postprocess.api_key_name)
+    print(f"{config.postprocess.api_key_name} {'found' if api_key else 'not found; skipping post-processing'}")
+    polisher = create_polisher(config.postprocess, api_key) if api_key else None
 
     with tempfile.TemporaryDirectory() as scratch:
         scratch = Path(scratch)
         server = DictationServer(
-            ServerConfig(bind="127.0.0.1", port=0), model=model, glm=glm, polish_enabled=lambda: True,
+            ServerConfig(bind="127.0.0.1", port=0), model=model, polisher=polisher, polish_enabled=lambda: True,
             timeout_s=config.postprocess.timeout_s, token_path=scratch / "server_token.txt",
         )
         server.start()
@@ -87,8 +87,8 @@ def main() -> int:
         stereo = scratch / "en-44k-stereo.wav"
         stereo_44k(FIXTURES / "en.wav", stereo)
         cases = [(f"{name} raw", FIXTURES / f"{name}.wav", FIXTURES / f"{name}.txt", "false") for name in ("en", "pt")]
-        if glm is not None:
-            cases += [(f"{name} GLM", FIXTURES / f"{name}.wav", FIXTURES / f"{name}.txt", "true") for name in ("en", "pt")]
+        if polisher is not None:
+            cases += [(f"{name} {config.postprocess.label}", FIXTURES / f"{name}.wav", FIXTURES / f"{name}.txt", "true") for name in ("en", "pt")]
         cases.append(("en 44.1 kHz stereo raw", stereo, FIXTURES / "en.txt", "false"))
 
         ok = True
@@ -107,8 +107,8 @@ def main() -> int:
                       f"polished {reply.get('polished')}\n  want: {want}\n  raw:  {reply.get('raw')}\n  text: {reply.get('text')}")
         finally:
             server.stop()
-            if glm is not None:
-                glm.close()
+            if polisher is not None:
+                polisher.close()
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
 

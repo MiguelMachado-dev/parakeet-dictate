@@ -48,8 +48,8 @@ Open **Settings…** from the menu.
 | Sounds | The start, stop, cancel, and error tones of the Windows app. |
 | Pause media while recording | On by default. A Mac addition. Also in the menu. |
 | URL and Token | The PC's server. **Paste Connection Info** reads the two lines that the tray's **Copy Mac connection info** copies on the PC. **Test Connection** checks them. |
-| Post-process | On This Mac, needs the chosen provider's key. On the PC, sent with each request, and the PC post-processes with its own GLM key and settings, whatever provider is chosen here. Also in the menu. |
-| Provider | Z.ai (GLM), the default, through the GLM Coding Plan, or Anthropic (Claude). A Mac addition. |
+| Post-process | On This Mac, needs the chosen provider's key. On the PC, sent with each request, and the PC post-processes with its own provider, key, and settings, whatever provider is chosen here. Also in the menu. |
+| Provider | Z.ai (GLM), the default, through the GLM Coding Plan, or Anthropic (Claude). The Windows app chooses this in `config.toml`. |
 | Z.ai API key, Anthropic API key | Kept in the Keychain, like the PC token. Each shows when its provider is chosen. |
 | Model | Anthropic only: Claude Haiku 5.5 (default), Claude Sonnet 5.5, or Other, for any model ID typed below it. |
 | Thinking | Anthropic only. Off (default) is the fastest: the model writes the cleaned text without reasoning first. On, it reasons first, for as long as the effort asks. |
@@ -73,7 +73,7 @@ defaults write dev.miguelmachado.parakeet-dictate claudeTimeout -float 8
 
 A rule gives the post-processing model instructions for dictations into certain apps, such as `Translate the transcript to English.` for Slack. Add one with **+**, from a preset or blank, then pick its apps from the ones running or from Applications. The rules apply when one of their apps is in front as a dictation ends; several rules for the same app add up, in list order.
 
-The model still cleans up the transcript, then follows the rule, even where it asks to translate or restyle. A rule post-processes even with **Post-process** off. On This Mac it goes to the chosen provider and needs its key; on the PC, the PC's GLM follows it, and the PC's app must have this version, or it ignores the rule and returns the text in the language spoken. A reply much longer than what was said is rejected as before, and the raw transcript is pasted.
+The model still cleans up the transcript, then follows the rule, even where it asks to translate or restyle. A rule post-processes even with **Post-process** off. On This Mac it goes to the chosen provider and needs its key; on the PC, the PC's selected provider follows it, and the PC's app must support instructions, or it ignores the rule and returns the text in the language spoken. A reply much longer than what was said is rejected as before, and the raw transcript is pasted.
 
 ## Check from the terminal
 

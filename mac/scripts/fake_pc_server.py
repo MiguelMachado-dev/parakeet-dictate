@@ -59,7 +59,7 @@ def main() -> None:
     model = SharedModel()
     model.load(EchoModel())
     server = DictationServer(
-        ServerConfig(bind="127.0.0.1", port=8799), model=model, glm=ShoutingGlm(), polish_enabled=lambda: True,
+        ServerConfig(bind="127.0.0.1", port=8799), model=model, polisher=ShoutingGlm(), polish_enabled=lambda: True,
         timeout_s=2.0, token_path=Path(tempfile.mkdtemp()) / "server_token.txt",
     )
     server.start()

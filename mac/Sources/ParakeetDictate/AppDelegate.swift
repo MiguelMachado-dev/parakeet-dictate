@@ -206,16 +206,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
 
-        // The PC post-processes with its own GLM, whatever provider this Mac uses.
-        let model = settings.engine == .local ? settings.polishProvider.modelName : "GLM"
-        let polish = NSMenuItem(title: "Post-process with \(model)", action: #selector(togglePostprocess), keyEquivalent: "")
+        // The PC chooses its own provider; the health reply only says whether post-processing is on.
+        let model = settings.polishProvider.modelName
+        let polishTitle = settings.engine == .local ? "Post-process with \(model)" : "Post-process on PC"
+        let polish = NSMenuItem(title: polishTitle, action: #selector(togglePostprocess), keyEquivalent: "")
         polish.state = settings.postprocess ? .on : .off
         polish.target = self
         if settings.engine == .local && settings.apiKey == nil {
             polish.title = "Post-process with \(model) (add a \(settings.polishProvider.keyName) key in Settings)"
             polish.action = nil
         } else if settings.engine == .server, case .connected(false) = dictation.serverStatus, settings.postprocess {
-            polish.title = "Post-process with GLM (the PC has no GLM key)"
+            polish.title = "Post-process on PC (off or no key)"
         }
         menu.addItem(polish)
         let overlayItem = NSMenuItem(title: "Overlay", action: nil, keyEquivalent: "")
@@ -375,7 +376,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             let postprocess = try await ServerClient(connection: connection).health()
             dictation.checkServer()
-            return postprocess ? "Connected. The PC post-processes with GLM." : "Connected. The PC has GLM off or no key."
+            return postprocess ? "Connected. The PC post-processes with its selected provider." : "Connected. The PC has post-processing off or no key."
         } catch let error as ServerError {
             switch error {
             case .unauthorized: return "The PC rejected the token."

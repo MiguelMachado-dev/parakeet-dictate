@@ -2,7 +2,7 @@
 
 The app this brief asked for is now in [mac/](../mac/README.md). It also transcribes on the Mac itself, so it keeps the reducer's `Polishing` state for that mode; the HTTP contract below is unchanged.
 
-You are building a native macOS menu-bar app that dictates through a Windows PC on the same network. The PC runs Parakeet Dictate, the Python app in this repository. It transcribes speech with NVIDIA Parakeet and cleans the transcript with GLM. Your app owns the hotkey, the recording, the overlay, and the paste. The PC only turns audio into text.
+You are building a native macOS menu-bar app that dictates through a Windows PC on the same network. The PC runs Parakeet Dictate, the Python app in this repository. It transcribes speech with NVIDIA Parakeet and cleans the transcript with GLM or Claude, using the provider, key, and settings in the PC's `config.toml`. The Mac's provider choice does not select the PC's. Your app owns the hotkey, the recording, the overlay, and the paste. The PC only turns audio into text.
 
 This document is self-contained. Read it in full before writing code. File references point into this repository, which is cloned on the Mac; the Windows code is the reference behavior to replicate. Paths are relative to the repository root.
 
@@ -30,13 +30,13 @@ Returns `200` and:
 {"status": "ok", "postprocess": true}
 ```
 
-- `postprocess` is `true` when GLM post-processing is on in the Windows tray and the PC has a GLM API key.
-- Side effect: when `postprocess` is `true`, the PC opens its connection to GLM in the background, without delaying this response. That saves about 0.9 s of DNS, TCP and TLS on the GLM call that follows. The connection stays warm for about 15 s.
+- `postprocess` is `true` when post-processing is on in the Windows tray and the PC has the selected provider's API key. The reply does not identify the provider.
+- Side effect: when `postprocess` is `true`, the PC opens its post-processing connection in the background, without delaying this response. For GLM this saved about 0.9 s of DNS, TCP and TLS. Both clients keep idle connections for 15 s.
 - The response does not say whether the model has finished loading. A transcription request answers that with `503`.
 
 Call it at two moments:
 
-1. At hotkey-down, fire and forget, in parallel with starting the recording. This mirrors the Windows app, which warms GLM when a recording starts (`src/parakeet_dictate/app.py:214-223`). Do not wait for the reply before recording.
+1. At hotkey-down, fire and forget, in parallel with starting the recording. This mirrors the Windows app, which warms its post-processing connection when a recording starts (`src/parakeet_dictate/app.py`). Do not wait for the reply before recording.
 2. To show the connection state in the menu: on launch, after the settings change, and on a slow timer while idle, such as every 60 s.
 
 ### `POST /v1/audio/transcriptions`
@@ -47,8 +47,8 @@ Request:
 
 - `Content-Type: multipart/form-data; boundary=...`, with a `Content-Length` header. Chunked uploads are not supported and get `411`.
 - Field `file`, required: a WAV file of 16-bit PCM samples. Mono or stereo; stereo is averaged to mono. Any sample rate; the server resamples. Send 16 kHz mono 16-bit, which is what the model uses and the smallest upload.
-- Field `postprocess`, optional: exactly `true` or `false`. Omitted means the Windows tray choice. `true` on a PC with no GLM key returns the raw text with `polished: false`.
-- Field `instructions`, optional: UTF-8 text that GLM follows for this dictation only, after its usual cleanup rules and taking precedence over them, such as `Translate to English.` The Mac sends the rules set for the app the text goes to. It only matters when the text is post-processed, so send `postprocess=true` with it. An older PC ignores it.
+- Field `postprocess`, optional: exactly `true` or `false`. Omitted means the Windows tray choice. `true` on a PC without the selected provider's key returns the raw text with `polished: false`.
+- Field `instructions`, optional: UTF-8 text that the PC's selected provider follows for this dictation only, after its usual cleanup rules and taking precedence over them, such as `Translate to English.` The Mac sends the rules set for the app the text goes to. It only matters when the text is post-processed, so send `postprocess=true` with it. An older PC ignores it.
 - Fields `model`, `language`, `response_format` and `temperature` are accepted and ignored.
 
 Responses:
@@ -56,7 +56,7 @@ Responses:
 | Status | When | Body |
 | --- | --- | --- |
 | `200` | Transcribed | `{"text": "<final text>", "raw": "<Parakeet transcript>", "polished": true}` |
-| `200` | GLM failed, or gave no reply within its timeout (8 s by default) | `{"text": "<raw>", "raw": "<raw>", "polished": false}` |
+| `200` | Post-processing failed, or gave no reply within its timeout (8 s by default) | `{"text": "<raw>", "raw": "<raw>", "polished": false}` |
 | `200` | No speech, or audio under 0.1 s | `{"text": "", "raw": "", "polished": false}` |
 | `400` | The file is not a 16-bit PCM WAV (24-bit, 32-bit float, not a WAV), no `file` field, not multipart, `postprocess` is neither `true` nor `false`, or `instructions` is not UTF-8 | error naming the expected format |
 | `401` | Missing or wrong token | error |
@@ -65,7 +65,7 @@ Responses:
 | `413` | Body over 115,265,536 bytes, about 10 minutes of 48 kHz stereo | error |
 | `503` | The model is still loading, which takes a few seconds after the Windows app starts | error |
 
-Paste `text`. A GLM failure is never a 5xx: it is a `200` with `polished: false`, and `text` is the raw transcript. Treat empty `text` as "nothing to paste": play no paste and no error tone.
+Paste `text`. A post-processing failure is never a 5xx: it is a `200` with `polished: false`, and `text` is the raw transcript. Treat empty `text` as "nothing to paste": play no paste and no error tone.
 
 The PC runs one transcription at a time. A request that arrives while the PC transcribes a local dictation or another request waits for it, then runs. Set the request timeout to at least 60 s. Measured on the PC over loopback with the CPU model, a 6 s clip took 2.2 to 3.1 s to transcribe, and GLM added 1.5 to 1.8 s. The GPU model, which the app uses by default, is faster; no figure was measured for this brief.
 

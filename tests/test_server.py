@@ -1,5 +1,6 @@
 import http.client
 import io
+import json
 import struct
 import threading
 import time
@@ -10,8 +11,8 @@ import numpy as np
 import pytest
 
 from parakeet_dictate.app import Cues, Dictation
-from parakeet_dictate.config import Config, ServerConfig
-from parakeet_dictate.polish import PolishError
+from parakeet_dictate.config import Config, PostprocessConfig, ServerConfig
+from parakeet_dictate.polish import PolishError, create_polisher
 from parakeet_dictate.recorder import Audio
 from parakeet_dictate.reducer import HotkeyDown, HotkeyUp
 from parakeet_dictate.server import MAX_BODY_BYTES, DictationServer
@@ -90,7 +91,7 @@ def serve(tmp_path):
             model = SharedModel()
             model.load(transcriber or FakeTranscriber())
         server = DictationServer(
-            ServerConfig(bind="127.0.0.1", port=0), model=model, glm=glm, polish_enabled=lambda: postprocess,
+            ServerConfig(bind="127.0.0.1", port=0), model=model, polisher=glm, polish_enabled=lambda: postprocess,
             timeout_s=timeout_s, token_path=tmp_path / "server_token.txt",
         )
         server.start()
@@ -123,6 +124,35 @@ def post(server: DictationServer, audio: bytes = SPEECH, token: str | None = Non
 
 def health(server: DictationServer, token: str | None = None) -> httpx2.Response:
     return httpx2.get(url(server, "/v1/health"), headers=auth(server, token), timeout=10)
+
+
+@pytest.mark.parametrize("reason", ["end_turn", "refusal", "max_tokens"])
+def test_server_uses_claude_for_mac_instructions_and_preserves_raw_fallback(serve, reason):
+    seen = []
+
+    def handler(request):
+        if request.method == "OPTIONS":
+            return httpx2.Response(200)
+        seen.append(json.loads(request.content))
+        return httpx2.Response(200, json={
+            "content": [{"type": "text", "text": POLISHED}], "stop_reason": reason,
+            "stop_details": {"category": "cyber"} if reason == "refusal" else None,
+        })
+
+    client = create_polisher(PostprocessConfig(provider="anthropic"), "test-key", transport=httpx2.MockTransport(handler))
+    try:
+        server = serve(glm=client, postprocess=False)
+        response = post(server, postprocess="true", instructions="Translate to English.")
+        assert response.status_code == 200
+        assert response.json() == {
+            "text": POLISHED if reason == "end_turn" else RAW, "raw": RAW, "polished": reason == "end_turn",
+        }
+        assert seen[0]["system"].endswith("\n\nTranslate to English.")
+        assert seen[0]["model"] == "claude-haiku-5-5"
+        assert post(server, postprocess="false", instructions="Be formal.").json()["polished"] is False
+        assert len(seen) == 1
+    finally:
+        client.close()
 
 
 def test_the_token_is_created_once_and_kept(serve, tmp_path):

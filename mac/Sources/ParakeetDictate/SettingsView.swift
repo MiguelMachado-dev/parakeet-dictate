@@ -109,7 +109,7 @@ struct SettingsView: View {
                 Text(
                     "Instructions for GLM or Claude when you dictate into certain apps, such as translating to English "
                         + "in Slack. A rule post-processes even with the toggle above off. On the PC, it needs the PC's app "
-                        + "updated, and the PC's GLM follows it."
+                        + "updated, and the PC's selected provider follows it."
                 )
                 .font(.caption).foregroundStyle(.secondary)
             }
@@ -120,7 +120,7 @@ struct SettingsView: View {
     }
 
     private var postprocessingFooter: String {
-        let pc = "Transcribing on the PC, the PC post-processes with its own GLM key and settings."
+        let pc = "Transcribing on the PC, the PC post-processes with its own provider, key, and settings."
         switch settings.polishProvider {
         case .zai:
             return "GLM removes fillers and fixes punctuation, with the key above. \(pc)"

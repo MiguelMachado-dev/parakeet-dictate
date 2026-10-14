@@ -60,7 +60,7 @@ def main() -> int:
     pastes: list[float] = []
     dictation = Dictation(
         config, recorder=recorder, transcriber=transcriber, paste=lambda text: pastes.append(time.perf_counter()),
-        cues=Cues(enabled=False), glm=glm,
+        cues=Cues(enabled=False), polisher=glm,
     )
     # Only the controller thread: a keyboard hook would see the user's keys during a long run.
     dictation._controller.start()

@@ -1,7 +1,7 @@
 import Foundation
 
 // Post-processing with Claude through the Anthropic Messages API, with the prompt and reply checks of
-// Polish.swift. The PC has no counterpart: it post-processes with GLM only.
+// Polish.swift. The PC's counterpart is in src/parakeet_dictate/polish.py.
 
 public struct ClaudeConfig: Equatable, Sendable {
     public static let haiku = "claude-haiku-5-5"
