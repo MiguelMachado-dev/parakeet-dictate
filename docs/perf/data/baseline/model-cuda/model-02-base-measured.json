@@ -1,0 +1,868 @@
+{
+ "kind": "model",
+ "provider": "cuda",
+ "source": "C:\\Users\\migue\\AppData\\Local\\Temp\\parakeet-perf\\base\\src\\parakeet_dictate",
+ "source_digest": "e2ba329436730af9",
+ "import_s": 0.3892710999989504,
+ "load_s": 2.639595399999962,
+ "label": "CUDA",
+ "warm_up_s": 2.775897799998347,
+ "overlay_busy_frames": 69,
+ "mock_provider": {
+  "posts": 6,
+  "posts_with_rule": 6,
+  "preconnects": 1
+ },
+ "idle_cpu_s": {
+  "0_5s": 2.96875,
+  "5_30s": 0.03125
+ },
+ "phases": {
+  "python": {
+   "working_set_mb": 25.828125,
+   "peak_working_set_mb": 27.203125,
+   "private_working_set_mb": 14.203125,
+   "commit_mb": 16.7890625,
+   "peak_commit_mb": 18.25,
+   "cpu_s": 0.140625,
+   "handles": 159,
+   "threads": 4,
+   "since_start_s": 0.1955696,
+   "gpu_dedicated_mb": 0.0,
+   "gpu_shared_mb": 0.0
+  },
+  "imported": {
+   "working_set_mb": 77.046875,
+   "peak_working_set_mb": 77.046875,
+   "private_working_set_mb": 47.5,
+   "commit_mb": 661.53515625,
+   "peak_commit_mb": 661.53515625,
+   "cpu_s": 0.4375,
+   "handles": 387,
+   "threads": 27,
+   "since_start_s": 0.6203743,
+   "gpu_dedicated_mb": 0.0,
+   "gpu_shared_mb": 0.0
+  },
+  "loaded": {
+   "working_set_mb": 628.84375,
+   "peak_working_set_mb": 712.29296875,
+   "private_working_set_mb": 485.5703125,
+   "commit_mb": 5622.3984375,
+   "peak_commit_mb": 5622.3984375,
+   "cpu_s": 18.5625,
+   "handles": 774,
+   "threads": 226,
+   "since_start_s": 3.3923542,
+   "gpu_dedicated_mb": 4105.546875,
+   "gpu_shared_mb": 76.0
+  },
+  "warm": {
+   "working_set_mb": 1264.99609375,
+   "peak_working_set_mb": 1264.99609375,
+   "private_working_set_mb": 1102.8125,
+   "commit_mb": 6808.0,
+   "peak_commit_mb": 6808.0,
+   "cpu_s": 68.046875,
+   "handles": 785,
+   "threads": 227,
+   "since_start_s": 6.2410118,
+   "gpu_dedicated_mb": 4501.55078125,
+   "gpu_shared_mb": 78.0
+  },
+  "after_new_length": {
+   "working_set_mb": 1374.84375,
+   "peak_working_set_mb": 1412.00390625,
+   "private_working_set_mb": 1212.15625,
+   "commit_mb": 8201.3671875,
+   "peak_commit_mb": 8238.63671875,
+   "cpu_s": 151.015625,
+   "handles": 789,
+   "threads": 227,
+   "since_start_s": 11.3956038,
+   "gpu_dedicated_mb": 5771.5625,
+   "gpu_shared_mb": 78.0
+  },
+  "after_same_length": {
+   "working_set_mb": 1379.86328125,
+   "peak_working_set_mb": 1412.00390625,
+   "private_working_set_mb": 1217.1640625,
+   "commit_mb": 8205.328125,
+   "peak_commit_mb": 8238.63671875,
+   "cpu_s": 166.46875,
+   "handles": 789,
+   "threads": 227,
+   "since_start_s": 12.4398124
+  },
+  "after_overlay_busy": {
+   "working_set_mb": 1383.4609375,
+   "peak_working_set_mb": 1412.00390625,
+   "private_working_set_mb": 1220.55859375,
+   "commit_mb": 8208.578125,
+   "peak_commit_mb": 8238.63671875,
+   "cpu_s": 187.125,
+   "handles": 790,
+   "threads": 227,
+   "since_start_s": 13.6776383
+  },
+  "after_dictation": {
+   "working_set_mb": 1391.26171875,
+   "peak_working_set_mb": 1420.98828125,
+   "private_working_set_mb": 1228.328125,
+   "commit_mb": 8479.16015625,
+   "peak_commit_mb": 8509.01171875,
+   "cpu_s": 232.984375,
+   "handles": 803,
+   "threads": 227,
+   "since_start_s": 16.3169278,
+   "gpu_dedicated_mb": 6033.5625,
+   "gpu_shared_mb": 78.0
+  },
+  "idle_5s": {
+   "working_set_mb": 1393.140625,
+   "peak_working_set_mb": 1420.98828125,
+   "private_working_set_mb": 1230.1796875,
+   "commit_mb": 8480.62109375,
+   "peak_commit_mb": 8674.546875,
+   "cpu_s": 249.53125,
+   "handles": 842,
+   "threads": 233,
+   "since_start_s": 22.0804195
+  },
+  "idle_30s": {
+   "working_set_mb": 1393.0078125,
+   "peak_working_set_mb": 1420.98828125,
+   "private_working_set_mb": 1230.046875,
+   "commit_mb": 8480.296875,
+   "peak_commit_mb": 8674.546875,
+   "cpu_s": 249.5625,
+   "handles": 815,
+   "threads": 226,
+   "since_start_s": 47.1179763,
+   "gpu_dedicated_mb": 6033.5625,
+   "gpu_shared_mb": 78.0
+  }
+ },
+ "sets": {
+  "new_length": [
+   {
+    "clip": "short",
+    "seconds": 2.5636961451247164,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 99.72000000016124,
+    "cores": [
+     11,
+     2
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.037392290249433,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 74.52989999910642,
+    "cores": [
+     2,
+     5
+    ]
+   },
+   {
+    "clip": "pt",
+    "seconds": 6.683106575963719,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde.",
+    "ms": 72.90809999904013,
+    "cores": [
+     5,
+     2
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.104807256235826,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 137.18469999912486,
+    "cores": [
+     2,
+     4
+    ]
+   },
+   {
+    "clip": "long",
+    "seconds": 50.11850340136054,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao mic.",
+    "ms": 207.70939999965776,
+    "cores": [
+     4,
+     1
+    ]
+   },
+   {
+    "clip": "xlong",
+    "seconds": 110.13219954648527,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, to ben. A manhã voa médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog.",
+    "ms": 440.277600000627,
+    "cores": [
+     2,
+     4
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 2.645895691609977,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 52.76679999951739,
+    "cores": [
+     4,
+     0
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.119591836734694,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 116.97520000052464,
+    "cores": [
+     3,
+     19
+    ]
+   },
+   {
+    "clip": "pt",
+    "seconds": 6.76530612244898,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde.",
+    "ms": 111.63390000001527,
+    "cores": [
+     19,
+     17
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.18700680272109,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 166.32000000026892,
+    "cores": [
+     17,
+     16
+    ]
+   },
+   {
+    "clip": "long",
+    "seconds": 50.200702947845805,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao me.",
+    "ms": 249.68819999958214,
+    "cores": [
+     17,
+     5
+    ]
+   },
+   {
+    "clip": "xlong",
+    "seconds": 110.21439909297052,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, to ben. A manhã voa médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog.",
+    "ms": 405.2090000004682,
+    "cores": [
+     14,
+     4
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 2.728095238095238,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 56.297499999345746,
+    "cores": [
+     4,
+     0
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.2017913832199545,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 110.69270000007236,
+    "cores": [
+     6,
+     15
+    ]
+   },
+   {
+    "clip": "pt",
+    "seconds": 6.84750566893424,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde.",
+    "ms": 113.2701000005909,
+    "cores": [
+     15,
+     18
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.26920634920635,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 161.52940000029048,
+    "cores": [
+     18,
+     7
+    ]
+   },
+   {
+    "clip": "long",
+    "seconds": 50.28290249433107,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao me.",
+    "ms": 191.18040000103065,
+    "cores": [
+     7,
+     3
+    ]
+   },
+   {
+    "clip": "xlong",
+    "seconds": 110.29659863945578,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, to ben. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog.",
+    "ms": 384.14209999973536,
+    "cores": [
+     3,
+     4
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 2.810294784580499,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 51.50630000025558,
+    "cores": [
+     4,
+     1
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.283990929705215,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 93.25990000070306,
+    "cores": [
+     1,
+     2
+    ]
+   },
+   {
+    "clip": "pt",
+    "seconds": 6.929705215419501,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde.",
+    "ms": 61.15680000038992,
+    "cores": [
+     1,
+     7
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.35140589569161,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 108.42450000018289,
+    "cores": [
+     2,
+     7
+    ]
+   },
+   {
+    "clip": "long",
+    "seconds": 50.365102040816325,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao me.",
+    "ms": 203.38450000053854,
+    "cores": [
+     7,
+     1
+    ]
+   },
+   {
+    "clip": "xlong",
+    "seconds": 110.37879818594104,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, to ben. A manhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog.",
+    "ms": 444.3578000009438,
+    "cores": [
+     0,
+     5
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 2.89249433106576,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 54.31750000025204,
+    "cores": [
+     5,
+     3
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.366190476190476,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 87.3978999989049,
+    "cores": [
+     3,
+     7
+    ]
+   },
+   {
+    "clip": "pt",
+    "seconds": 7.011904761904762,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde.",
+    "ms": 63.70009999955073,
+    "cores": [
+     7,
+     2
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.43360544217687,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 119.35749999975087,
+    "cores": [
+     0,
+     2
+    ]
+   },
+   {
+    "clip": "long",
+    "seconds": 50.44730158730159,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem. Amanhã voa ao mic.",
+    "ms": 179.11000000094646,
+    "cores": [
+     0,
+     5
+    ]
+   },
+   {
+    "clip": "xlong",
+    "seconds": 110.4609977324263,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, to ben. A manhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. Amanhã voa ao médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. A manhã voa al médico as 3 horas da tarde. The quick brown fox jumps over the lazy dog.",
+    "ms": 378.6899999995512,
+    "cores": [
+     5,
+     2
+    ]
+   }
+  ],
+  "same_length": [
+   {
+    "clip": "short",
+    "seconds": 2.9746938775510205,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 55.097599999498925,
+    "cores": [
+     4,
+     4
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 2.9746938775510205,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 43.44669999954931,
+    "cores": [
+     4,
+     1
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 2.9746938775510205,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 32.00979999928677,
+    "cores": [
+     1,
+     2
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 2.9746938775510205,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 25.0705000016751,
+    "cores": [
+     2,
+     2
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 2.9746938775510205,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 27.3496999998315,
+    "cores": [
+     2,
+     4
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.448390022675737,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 89.27820000099018,
+    "cores": [
+     4,
+     13
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.448390022675737,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 58.557699998345925,
+    "cores": [
+     13,
+     3
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.448390022675737,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 36.64810000009311,
+    "cores": [
+     3,
+     6
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.448390022675737,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 30.963299999712035,
+    "cores": [
+     6,
+     7
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.448390022675737,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 42.859799999860115,
+    "cores": [
+     7,
+     6
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.502108843537414,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 122.94509999992442,
+    "cores": [
+     6,
+     7
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.502108843537414,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 92.04179999869666,
+    "cores": [
+     7,
+     6
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.502108843537414,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 109.10169999988284,
+    "cores": [
+     6,
+     2
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.502108843537414,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 97.7402999997139,
+    "cores": [
+     2,
+     3
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.502108843537414,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 80.90190000075381,
+    "cores": [
+     3,
+     3
+    ]
+   }
+  ],
+  "overlay_busy": [
+   {
+    "clip": "short",
+    "seconds": 3.0158049886621314,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 70.20659999943746,
+    "cores": [
+     0,
+     1
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.489501133786848,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 69.24880000042322,
+    "cores": [
+     1,
+     1
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.543197278911563,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 143.71070000015607,
+    "cores": [
+     0,
+     5
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 3.0568934240362813,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 85.54220000041823,
+    "cores": [
+     5,
+     0
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.530589569160997,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 118.6333999994531,
+    "cores": [
+     0,
+     1
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.584308390022677,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 114.93180000070424,
+    "cores": [
+     1,
+     0
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 3.098004535147392,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 72.90080000166199,
+    "cores": [
+     0,
+     0
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.571700680272109,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 75.300900000002,
+    "cores": [
+     0,
+     3
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.625396825396827,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 118.51750000096217,
+    "cores": [
+     0,
+     0
+    ]
+   },
+   {
+    "clip": "short",
+    "seconds": 3.139092970521542,
+    "text": "The quick brown fox jumps over the lazy dog.",
+    "ms": 79.74019999892334,
+    "cores": [
+     0,
+     7
+    ]
+   },
+   {
+    "clip": "en",
+    "seconds": 6.612789115646258,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 80.52329999918584,
+    "cores": [
+     7,
+     3
+    ]
+   },
+   {
+    "clip": "mid",
+    "seconds": 20.666507936507937,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday.",
+    "ms": 116.82260000088718,
+    "cores": [
+     3,
+     0
+    ]
+   }
+  ],
+  "dictation": [
+   {
+    "seconds": 3.180204081632653,
+    "ms": 105.65630000019155,
+    "text": "The quick brown fox jumps over the lazy dog. "
+   },
+   {
+    "seconds": 6.6539002267573695,
+    "ms": 115.24070000086795,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 7.2995918367346935,
+    "ms": 129.65669999903184,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. "
+   },
+   {
+    "seconds": 20.721292517006802,
+    "ms": 180.1060999987385,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 3.235011337868481,
+    "ms": 96.19840000050317,
+    "text": "The quick brown fox jumps over the lazy dog. "
+   },
+   {
+    "seconds": 6.708707482993197,
+    "ms": 111.04030000024068,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 7.354399092970522,
+    "ms": 107.29349999928672,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. "
+   },
+   {
+    "seconds": 20.77609977324263,
+    "ms": 172.0337999995536,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 3.289795918367347,
+    "ms": 94.91630000047735,
+    "text": "The quick brown fox jumps over the lazy dog. "
+   },
+   {
+    "seconds": 6.7634920634920634,
+    "ms": 108.69540000021516,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 7.409206349206349,
+    "ms": 109.93229999985488,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. "
+   },
+   {
+    "seconds": 20.830907029478457,
+    "ms": 177.8319000004558,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 3.344603174603175,
+    "ms": 100.95989999899757,
+    "text": "The quick brown fox jumps over the lazy dog. "
+   },
+   {
+    "seconds": 6.818299319727891,
+    "ms": 111.20389999996405,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 7.463990929705216,
+    "ms": 106.50800000075833,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. "
+   },
+   {
+    "seconds": 20.885691609977325,
+    "ms": 164.11999999945692,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 3.3994104308390023,
+    "ms": 107.54750000160129,
+    "text": "The quick brown fox jumps over the lazy dog. "
+   },
+   {
+    "seconds": 6.873106575963718,
+    "ms": 113.73679999996966,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 7.518798185941043,
+    "ms": 112.37120000077994,
+    "text": "Olá, tudo bem? Amanhã vou ao médico às 3 horas da tarde. "
+   },
+   {
+    "seconds": 20.94049886621315,
+    "ms": 169.75040000033914,
+    "text": "The quick brown fox jumps over the lazy dog. Please send the report by Friday. Hola, tudo bem? Amanhã vou ao médico às 3 horas da tarde. The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   }
+  ],
+  "dictation_polish_mock": [
+   {
+    "seconds": 3.4541950113378683,
+    "ms": 84.14079999965907,
+    "text": "[polished] The quick brown fox jumps over the lazy dog. "
+   },
+   {
+    "seconds": 6.927891156462585,
+    "ms": 119.89419999918027,
+    "text": "[polished] The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 3.4541950113378683,
+    "ms": 95.78870000041206,
+    "text": "[polished] The quick brown fox jumps over the lazy dog. "
+   },
+   {
+    "seconds": 6.927891156462585,
+    "ms": 134.19229999999516,
+    "text": "[polished] The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   },
+   {
+    "seconds": 3.4541950113378683,
+    "ms": 106.11289999906148,
+    "text": "[polished] The quick brown fox jumps over the lazy dog. "
+   },
+   {
+    "seconds": 6.927891156462585,
+    "ms": 97.40149999925052,
+    "text": "[polished] The quick brown fox jumps over the lazy dog. Please send the report by Friday. "
+   }
+  ]
+ },
+ "exit_code": 0,
+ "side": "base",
+ "sha": "da3c1895ac7921b55dc23f80083c56224092e7d9",
+ "role": "measured",
+ "index": 2,
+ "wall_s": 47.380925299999944,
+ "machine_before": {
+  "gpu": "5 %, 7098 MiB, P1"
+ },
+ "machine_cpu_busy": 0.4065629942013706
+}

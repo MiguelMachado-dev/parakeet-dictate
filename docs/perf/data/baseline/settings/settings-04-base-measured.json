@@ -1,0 +1,29 @@
+{
+ "kind": "settings",
+ "window_s": 0.5845403000002989,
+ "working_set_mb": 83.65625,
+ "peak_working_set_mb": 83.66015625,
+ "private_working_set_mb": 48.4609375,
+ "commit_mb": 715.99609375,
+ "peak_commit_mb": 716.00390625,
+ "cpu_s": 0.578125,
+ "handles": 401,
+ "threads": 28,
+ "launcher_working_set_mb": 8.08984375,
+ "launcher_commit_mb": 2.0859375,
+ "modules": 107,
+ "onnxruntime_loaded": true,
+ "cuda_loaded": false,
+ "portaudio_loaded": true,
+ "openblas_loaded": true,
+ "exit_code": 0,
+ "side": "base",
+ "sha": "da3c1895ac7921b55dc23f80083c56224092e7d9",
+ "role": "measured",
+ "index": 4,
+ "wall_s": 2.1830741000012495,
+ "machine_before": {
+  "gpu": "4 %, 7282 MiB, P1"
+ },
+ "machine_cpu_busy": 0.16056338028169015
+}

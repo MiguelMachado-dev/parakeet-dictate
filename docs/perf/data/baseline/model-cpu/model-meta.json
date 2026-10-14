@@ -1,0 +1,39 @@
+{
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "logical_cpus": 20,
+    "gpu": "NVIDIA GeForce RTX 5080, 617.14, 16303 MiB",
+    "packages": {
+      "onnxruntime-gpu": "1.31.0",
+      "onnx-asr": "0.12.0",
+      "numpy": "2.5.3",
+      "pillow": "12.3.0",
+      "httpx2": "2.13.1"
+    }
+  },
+  "sides": {
+    "base": {
+      "src": "C:\\Users\\migue\\AppData\\Local\\Temp\\parakeet-perf\\base\\src",
+      "sha": "da3c1895ac7921b55dc23f80083c56224092e7d9"
+    }
+  },
+  "argv": [
+    "model",
+    "--side",
+    "base=C:\\Users\\migue\\AppData\\Local\\Temp\\parakeet-perf\\base\\src",
+    "--model-dir",
+    "C:/Users/migue/www/parakeet-dictate/models/parakeet-tdt-0.6b-v3",
+    "--provider",
+    "cpu",
+    "--runs",
+    "3",
+    "--warmup",
+    "0",
+    "--reps",
+    "1",
+    "--out",
+    "docs/perf/data/baseline/model-cpu"
+  ]
+}
