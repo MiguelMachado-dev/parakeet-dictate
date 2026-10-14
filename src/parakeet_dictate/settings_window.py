@@ -135,6 +135,7 @@ class SettingsWindow:
 
     def _postprocess(self):
         page = self._page("Post-processing")
+        self.postprocess_page = self.pages[-1]
         self._check(page, 0, "Post-process dictations", "postprocess.enabled")
         self._hint(page, 1, "Clean up fillers, repetitions, and punctuation before pasting. Transcript text goes to the chosen provider; audio stays on this PC.")
         provider = self._row(page, 2, "Provider", "postprocess.provider", tuple(PROVIDERS))
@@ -168,7 +169,8 @@ class SettingsWindow:
         self.test_status = tk.StringVar(self.root)
         self.test_button = ttk.Button(page, text="Test provider", command=self.test_provider)
         self.test_button.grid(row=12, column=1, sticky="w", pady=(4, 8))
-        ttk.Label(page, textvariable=self.test_status, style="Hint.TLabel", wraplength=420).grid(row=13, column=1, sticky="w")
+        self.test_label = ttk.Label(page, textvariable=self.test_status, style="Hint.TLabel", wraplength=420)
+        self.test_label.grid(row=13, column=1, sticky="w")
 
     def _server(self):
         page = self._page("Server for Mac")
@@ -327,10 +329,10 @@ class SettingsWindow:
             return
         key = self.keys[config.api_key_name].get().strip()
         if not key:
-            self.test_status.set("Enter an API key first.")
+            self._test_message("Enter an API key first.")
             return
         self.test_button.configure(state="disabled")
-        self.test_status.set(f"Testing {config.label} with a short sample…")
+        self._test_message(f"Testing {config.label} with a short sample…")
         results = queue.Queue()
         started = time.monotonic()
 
@@ -357,11 +359,16 @@ class SettingsWindow:
                     self.later(100, poll)
                     return
                 result = f"{config.label} did not reply within {config.timeout_s:g} s."
-            self.test_status.set(result)
+            self._test_message(result)
             self.test_button.configure(state="normal")
 
         threading.Thread(target=check, name="settings-test", daemon=True).start()
         self.later(100, poll)
+
+    def _test_message(self, text):
+        self.test_status.set(text)
+        if self.test_label.winfo_ismapped():
+            self.postprocess_page.reveal(self.test_label)
 
     def later(self, delay, callback):
         def call():
