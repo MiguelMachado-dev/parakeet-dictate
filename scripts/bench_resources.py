@@ -426,18 +426,19 @@ WM_CLOSE = 0x0010
 SYNCHRONIZE = 0x00100000
 
 
-def settings_window(pid: int) -> int | None:
+def settings_window(pids: set[int]) -> tuple[int, int] | None:
+    """The Settings window of one of pids, and the process that owns it."""
     found = []
 
     @WNDENUMPROC
     def check(hwnd, unused):
         owner = wintypes.DWORD()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
-        if owner.value == pid and user32.IsWindowVisible(hwnd):
+        if owner.value in pids and user32.IsWindowVisible(hwnd):
             title = ctypes.create_unicode_buffer(256)
             user32.GetWindowTextW(hwnd, title, 256)
             if title.value == SETTINGS_TITLE:
-                found.append(hwnd)
+                found.append((hwnd, owner.value))
                 return False
         return True
 
@@ -455,15 +456,19 @@ def measure_settings(args: argparse.Namespace, src: Path, stem: Path) -> dict:
     process = subprocess.Popen([str(pythonw), "-m", "parakeet_dictate", "--settings"], env=child_env(src), cwd=src.parent)
     row = {"kind": "settings"}
     try:
-        while (hwnd := settings_window(process.pid)) is None:
+        while (found := settings_window({process.pid, *winstats.child_pids(process.pid)})) is None:
             if process.poll() is not None or time.perf_counter() - t > 30:
                 row["error"] = f"no window (exit code {process.poll()})"
                 return row
             time.sleep(0.005)
         row["window_s"] = time.perf_counter() - t
+        hwnd, owner = found
         time.sleep(args.settle)
-        row.update(winstats.memory(process.pid), threads=winstats.threads(process.pid))
-        loaded = winstats.modules(process.pid)
+        row.update(winstats.memory(owner), threads=winstats.threads(owner))
+        if owner != process.pid:
+            launcher = winstats.memory(process.pid)
+            row["launcher_working_set_mb"], row["launcher_commit_mb"] = launcher["working_set_mb"], launcher["commit_mb"]
+        loaded = winstats.modules(owner)
         row["modules"] = len(loaded)
         row["onnxruntime_loaded"] = any(name.casefold().startswith("onnxruntime") for name in loaded)
         row["cuda_loaded"] = any(name.casefold().startswith(("cudart", "cublas", "cudnn")) for name in loaded)
@@ -473,6 +478,8 @@ def measure_settings(args: argparse.Namespace, src: Path, stem: Path) -> dict:
         row["exit_code"] = process.wait(15)
     finally:
         if process.poll() is None:
+            for pid in winstats.child_pids(process.pid):
+                subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
             process.terminate()
     return row
 
