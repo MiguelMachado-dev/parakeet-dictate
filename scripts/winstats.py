@@ -202,6 +202,24 @@ def modules(pid: int) -> list[str]:
         kernel32.CloseHandle(handle)
 
 
+def performance_cores() -> list[int]:
+    """Logical processors in the highest efficiency class: the P-cores of a hybrid CPU, or all of them."""
+    size = wintypes.ULONG()
+    kernel32.GetSystemCpuSetInformation(None, 0, ctypes.byref(size), None, 0)
+    buffer = (ctypes.c_ubyte * size.value)()
+    if not kernel32.GetSystemCpuSetInformation(buffer, size, ctypes.byref(size), None, 0):
+        raise ctypes.WinError(ctypes.get_last_error())
+    classes, offset = {}, 0
+    while offset < size.value:
+        # SYSTEM_CPU_SET_INFORMATION: Size, Type, then Id, Group, LogicalProcessorIndex, CoreIndex,
+        # LastLevelCacheIndex, NumaNodeIndex, EfficiencyClass.
+        entry = bytes(buffer[offset : offset + 19])
+        classes[entry[14]] = entry[18]
+        offset += int.from_bytes(entry[:4], "little")
+    best = max(classes.values())
+    return sorted(index for index, efficiency in classes.items() if efficiency == best)
+
+
 def system_cpu() -> tuple[int, int]:
     """(busy, total) 100 ns ticks over all cores since boot; diff two readings for the busy share."""
     idle, kernel, user = (wintypes.FILETIME() for _ in range(3))

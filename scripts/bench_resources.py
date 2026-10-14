@@ -112,6 +112,7 @@ def run_model(args: argparse.Namespace) -> dict:
         "source": str(package),
         "source_digest": source_digest(package),
         "import_s": import_s,
+        "performance_cores": winstats.performance_cores(),
     }
 
     t = time.perf_counter()
@@ -252,8 +253,19 @@ def dictate(app, model, config, polisher, foreground, clips, HotkeyDown, HotkeyU
         pasted.append((time.perf_counter(), text))
         done.set()
 
-    recorder = ClipRecorder()
-    dictation = app.Dictation(config, recorder=recorder, transcriber=model, paste=paste, cues=app.Cues(False),
+    class CoreRecorder:
+        """Records the cores Dictation's transcription thread ran on, before and after each transcription."""
+        cores: list[int] = []
+
+        def transcribe(self, audio):
+            before = kernel32.GetCurrentProcessorNumber()
+            try:
+                return model.transcribe(audio)
+            finally:
+                self.cores = [before, kernel32.GetCurrentProcessorNumber()]
+
+    recorder, transcriber = ClipRecorder(), CoreRecorder()
+    dictation = app.Dictation(config, recorder=recorder, transcriber=transcriber, paste=paste, cues=app.Cues(False),
                               polisher=polisher, polish_enabled=lambda: polisher is not None, foreground_app=foreground)
     # The controller only; the keyboard hook is never installed.
     dictation._controller.start()
@@ -268,6 +280,7 @@ def dictate(app, model, config, polisher, foreground, clips, HotkeyDown, HotkeyU
         if done.wait(30):
             row["ms"] = (pasted[-1][0] - released) * 1000
             row["text"] = pasted[-1][1]
+            row["cores"] = transcriber.cores
         else:
             row["error"] = "no paste within 30 s"
         rows.append(row)
@@ -653,6 +666,11 @@ def model_metrics(rows: list[dict]) -> dict[str, list[float]]:
                 for r in rest if set_name in ("new_length", "same_length") else clip_rows:
                     if "error" not in r:
                         add(f"{set_name}.{clip}.ms", r["ms"])
+        if fast := set(row.get("performance_cores", ())):
+            for set_name, set_rows in row["sets"].items():
+                placed = [set(r["cores"]) <= fast for r in set_rows if r.get("cores")]
+                if placed:
+                    add(f"pcore_share.{set_name}", sum(placed) / len(placed))
         for clip in ("en", "pt"):
             want = words((FIXTURES / f"{clip}.txt").read_text(encoding="utf-8"))
             for r in row["sets"]["new_length"]:
