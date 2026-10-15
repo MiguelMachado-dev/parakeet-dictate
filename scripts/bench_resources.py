@@ -9,6 +9,7 @@ settings   Starts the real `pythonw -m parakeet_dictate --settings`, times its w
 overlay    Renders a scripted sequence of overlay frames in-process and times each one, with a hash of
            every frame's pixels; also times the level meter on fixture audio.
 summary    Prints the medians of a results folder, per side.
+compare    Prints a Markdown table of one side's medians against another's, from one folder or two.
 
 Each side is a checkout's src folder, run with this venv through PYTHONPATH, so one command alternates
 between two versions of the app: --side base=<checkout>/src --side opt=src. Sides run as base, opt,
@@ -21,6 +22,7 @@ import ctypes
 import hashlib
 import json
 import os
+import re
 import statistics
 import subprocess
 import sys
@@ -466,10 +468,11 @@ def measure_settings(args: argparse.Namespace, src: Path, stem: Path) -> dict:
     if held:
         kernel32.CloseHandle(held)
         raise SystemExit("A Settings window is open; close it first. Starting another would bring that one forward.")
+    package = src / "parakeet_dictate"
+    row = {"kind": "settings", "source": str(package), "source_digest": source_digest(package)}
     pythonw = Path(sys.executable).with_name("pythonw.exe")
     t = time.perf_counter()
     process = subprocess.Popen([str(pythonw), "-m", "parakeet_dictate", "--settings"], env=child_env(src), cwd=src.parent)
-    row = {"kind": "settings"}
     try:
         while (found := settings_window({process.pid, *winstats.child_pids(process.pid)})) is None:
             if process.poll() is not None or time.perf_counter() - t > 30:
@@ -735,8 +738,27 @@ def print_summary(summary: dict) -> None:
               f"differing between sides: {check['calls_differing_between_sides']}")
 
 
-def compare(before: Path, after: Path, before_side: str | None, after_side: str | None) -> str:
-    """A Markdown table per kind: each metric's median before and after, with the change."""
+def markdown_summary(summary: dict, only: str | None) -> str:
+    """A Markdown table per kind of each side's medians, in the order the sides ran."""
+    lines = []
+    for kind, sides in summary.items():
+        if kind not in METRICS:
+            continue
+        names = list(sides)
+        lines += ["| metric | " + " | ".join(f"{n}, n={sides[n]['runs']}" for n in names) + " |",
+                  "|---|" + "---:|" * len(names)]
+        for key in dict.fromkeys(k for n in names for k in sides[n]["metrics"]):
+            if only and not re.search(only, key):
+                continue
+            cells = [f"{m['median']:.2f}" if (m := sides[n]["metrics"].get(key, {})).get("n") else "-" for n in names]
+            lines.append(f"| {key} | " + " | ".join(cells) + " |")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def compare(before: Path, after: Path, before_side: str | None, after_side: str | None, only: str | None = None) -> str:
+    """A Markdown table per kind: each metric's median before and after, with the change. `only` is a regular
+    expression that picks metrics by name."""
 
     def pick(out: Path, side: str | None) -> tuple[str, dict]:
         summary = summarize(out)
@@ -751,7 +773,7 @@ def compare(before: Path, after: Path, before_side: str | None, after_side: str 
         return side, {"kind": kinds[0], **sides[side]}
 
     def cell(m: dict) -> str:
-        return f"{m['median']:.2f} [{m['min']:.2f}-{m['max']:.2f}]" if m.get("n") else "-"
+        return f"{m['median']:.2f} [{m['min']:.2f}-{m['max']:.2f}] p95 {m['p95']:.2f}, n {m['n']}" if m.get("n") else "-"
 
     (b_name, b), (a_name, a) = pick(before, before_side), pick(after, after_side)
     if b["kind"] != a["kind"]:
@@ -759,6 +781,8 @@ def compare(before: Path, after: Path, before_side: str | None, after_side: str 
     lines = [f"| metric | before: {b_name}, n={b['runs']} | after: {a_name}, n={a['runs']} | change | change % |",
              "|---|---:|---:|---:|---:|"]
     for key in dict.fromkeys([*b["metrics"], *a["metrics"]]):
+        if only and not re.search(only, key):
+            continue
         mb, ma = b["metrics"].get(key, {}), a["metrics"].get(key, {})
         if mb.get("n") and ma.get("n"):
             delta = ma["median"] - mb["median"]
@@ -806,11 +830,14 @@ def main() -> int:
     overlay_child.add_argument("--json-out", required=True)
     summary = commands.add_parser("summary")
     summary.add_argument("out")
+    summary.add_argument("--markdown", action="store_true", help="a Markdown table of medians")
+    summary.add_argument("--only", help="a regular expression; show only the metrics whose names it matches")
     compared = commands.add_parser("compare", help="a Markdown table of medians before and after")
     compared.add_argument("before")
     compared.add_argument("after")
     compared.add_argument("--before-side")
     compared.add_argument("--after-side")
+    compared.add_argument("--only", help="a regular expression; show only the metrics whose names it matches")
     args = parser.parse_args()
 
     if args.command == "model-child":
@@ -818,11 +845,14 @@ def main() -> int:
     elif args.command == "overlay-child":
         Path(args.json_out).write_text(json.dumps(run_overlay(args)), encoding="utf-8")
     elif args.command == "compare":
-        print(compare(Path(args.before), Path(args.after), args.before_side, args.after_side))
+        print(compare(Path(args.before), Path(args.after), args.before_side, args.after_side, args.only))
     elif args.command == "summary":
         result = summarize(Path(args.out))
         (Path(args.out) / "summary.json").write_text(json.dumps(result, indent=1), encoding="utf-8")
-        print_summary(result)
+        if args.markdown:
+            print(markdown_summary(result, args.only))
+        else:
+            print_summary(result)
     else:
         measure = {"model": measure_model, "settings": measure_settings, "overlay": measure_overlay}[args.command]
         run_children(args, args.command, measure)
