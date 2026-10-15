@@ -1,0 +1,45 @@
+round 0 base done
+round 0 t1 done
+round 0 nospin done
+round 0 t1_initdev done
+round 0 t1_same done
+round 0 t1_mem done
+round 0 t1_heur done
+round 0 t1_default done
+round 0 t1_cpures done
+round 1 base done
+round 1 t1 done
+round 1 nospin done
+round 1 t1_initdev done
+round 1 t1_same done
+round 1 t1_mem done
+round 1 t1_heur done
+round 1 t1_default done
+round 1 t1_cpures done
+round 2 base done
+round 2 t1 done
+round 2 nospin done
+round 2 t1_initdev done
+round 2 t1_same done
+round 2 t1_mem done
+round 2 t1_heur done
+round 2 t1_default done
+round 2 t1_cpures done
+base {"load_s": 2.47, "warm_s": 3.01, "thr_loaded": 226, "gpu_loaded": 4112, "gpu_warm": 4500, "gpu_after": 5770, "commit_after": 8196, "pws_after": 1211, "cpu_load_warm": 67.97, "cpu_clips": 32.09, "cpu_idle5": 4.97, "en_fresh_ms": 76.95, "en_same_ms": 39.5, "xlong_ms": 448.7, "mid_ms": 148.15}
+t1 {"load_s": 2.17, "warm_s": 0.58, "thr_loaded": 36, "gpu_loaded": 4104, "gpu_warm": 4500, "gpu_after": 5770, "commit_after": 8135, "pws_after": 1156, "cpu_load_warm": 2.98, "cpu_clips": 2.36, "cpu_idle5": 0.06, "en_fresh_ms": 89.55, "en_same_ms": 59.3, "xlong_ms": 606.5, "mid_ms": 149.4}
+nospin {"load_s": 2.13, "warm_s": 0.58, "thr_loaded": 226, "gpu_loaded": 4118, "gpu_warm": 4498, "gpu_after": 5768, "commit_after": 8194, "pws_after": 1211, "cpu_load_warm": 2.97, "cpu_clips": 2.59, "cpu_idle5": 0.08, "en_fresh_ms": 111.4, "en_same_ms": 59.1, "xlong_ms": 577.3, "mid_ms": 178.2}
+t1_initdev {"load_s": 2.12, "warm_s": 0.59, "thr_loaded": 36, "gpu_loaded": 3370, "gpu_warm": 3716, "gpu_after": 5978, "commit_after": 8278, "pws_after": 1087, "cpu_load_warm": 2.92, "cpu_clips": 2.58, "cpu_idle5": 0.06, "en_fresh_ms": 110.7, "en_same_ms": 57.3, "xlong_ms": 561.4, "mid_ms": 167.0}
+t1_same {"load_s": 2.19, "warm_s": 0.65, "thr_loaded": 36, "gpu_loaded": 3370, "gpu_warm": 3722, "gpu_after": 5152, "commit_after": 7501, "pws_after": 1137, "cpu_load_warm": 3.14, "cpu_clips": 2.67, "cpu_idle5": 0.07, "en_fresh_ms": 114.2, "en_same_ms": 59.1, "xlong_ms": 605.2, "mid_ms": 175.85}
+t1_mem {"load_s": 2.16, "warm_s": 0.63, "thr_loaded": 36, "gpu_loaded": 3370, "gpu_warm": 3722, "gpu_after": 5152, "commit_after": 7422, "pws_after": 1060, "cpu_load_warm": 2.97, "cpu_clips": 2.63, "cpu_idle5": 0.08, "en_fresh_ms": 114.6, "en_same_ms": 57.6, "xlong_ms": 577.7, "mid_ms": 172.4}
+t1_heur {"load_s": 2.17, "warm_s": 0.64, "thr_loaded": 36, "gpu_loaded": 4110, "gpu_warm": 4502, "gpu_after": 5772, "commit_after": 8139, "pws_after": 1155, "cpu_load_warm": 2.96, "cpu_clips": 2.61, "cpu_idle5": 0.07, "en_fresh_ms": 117.1, "en_same_ms": 60.3, "xlong_ms": 609.0, "mid_ms": 180.0}
+t1_default {"load_s": 2.16, "warm_s": 1.84, "thr_loaded": 36, "gpu_loaded": 4106, "gpu_warm": 4502, "gpu_after": 5772, "commit_after": 8123, "pws_after": 1150, "cpu_load_warm": 4.17, "cpu_clips": 12.63, "cpu_idle5": 0.08, "en_fresh_ms": 696.3, "en_same_ms": 621.4, "xlong_ms": 1179.3, "mid_ms": 756.2}
+t1_cpures {"load_s": 2.17, "warm_s": 0.67, "thr_loaded": 36, "gpu_loaded": 3638, "gpu_warm": 3968, "gpu_after": 5114, "commit_after": 7525, "pws_after": 1182, "cpu_load_warm": 3.07, "cpu_clips": 2.69, "cpu_idle5": 0.07, "en_fresh_ms": 116.35, "en_same_ms": 58.4, "xlong_ms": 638.8, "mid_ms": 176.9}
+base distinct transcript sets: 1 same as first config: True
+t1 distinct transcript sets: 1 same as first config: True
+nospin distinct transcript sets: 1 same as first config: True
+t1_initdev distinct transcript sets: 1 same as first config: True
+t1_same distinct transcript sets: 1 same as first config: True
+t1_mem distinct transcript sets: 1 same as first config: True
+t1_heur distinct transcript sets: 1 same as first config: True
+t1_default distinct transcript sets: 1 same as first config: True
+t1_cpures distinct transcript sets: 1 same as first config: True

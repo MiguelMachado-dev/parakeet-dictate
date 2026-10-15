@@ -1,0 +1,1517 @@
+{
+ "model": {
+  "base": {
+   "failed_runs": 0,
+   "runs": 3,
+   "source_digests": [
+    "e2ba329436730af9"
+   ],
+   "metrics": {
+    "import_s": {
+     "n": 3,
+     "median": 0.3654513000001316,
+     "min": 0.36338270000123885,
+     "max": 0.3703529999984312,
+     "p95": 0.3698628299986012
+    },
+    "load_s": {
+     "n": 3,
+     "median": 2.544839400001365,
+     "min": 2.3606834999991406,
+     "max": 2.7086201999991317,
+     "p95": 2.692242119999355
+    },
+    "warm_up_s": {
+     "n": 3,
+     "median": 7.396922200001427,
+     "min": 3.289690800000244,
+     "max": 7.6812839999984135,
+     "p95": 7.652847819998715
+    },
+    "ready_since_start_s": {
+     "n": 3,
+     "median": 11.835639,
+     "min": 6.4440451,
+     "max": 12.2837666,
+     "p95": 12.23895384
+    },
+    "imported.working_set_mb": {
+     "n": 3,
+     "median": 77.46484375,
+     "min": 77.34375,
+     "max": 77.64453125,
+     "p95": 77.6265625
+    },
+    "imported.private_working_set_mb": {
+     "n": 3,
+     "median": 47.90625,
+     "min": 47.79296875,
+     "max": 48.08984375,
+     "p95": 48.071484375
+    },
+    "imported.commit_mb": {
+     "n": 3,
+     "median": 661.90234375,
+     "min": 661.7421875,
+     "max": 661.984375,
+     "p95": 661.976171875
+    },
+    "imported.threads": {
+     "n": 3,
+     "median": 27,
+     "min": 27,
+     "max": 27,
+     "p95": 27.0
+    },
+    "imported.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "loaded.working_set_mb": {
+     "n": 3,
+     "median": 782.921875,
+     "min": 781.171875,
+     "max": 783.57421875,
+     "p95": 783.508984375
+    },
+    "loaded.private_working_set_mb": {
+     "n": 3,
+     "median": 748.8828125,
+     "min": 747.12890625,
+     "max": 749.52734375,
+     "p95": 749.462890625
+    },
+    "loaded.commit_mb": {
+     "n": 3,
+     "median": 1367.96875,
+     "min": 1366.30078125,
+     "max": 1368.66015625,
+     "p95": 1368.591015625
+    },
+    "loaded.threads": {
+     "n": 3,
+     "median": 198,
+     "min": 198,
+     "max": 198,
+     "p95": 198.0
+    },
+    "loaded.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "warm.working_set_mb": {
+     "n": 3,
+     "median": 825.89453125,
+     "min": 824.9296875,
+     "max": 826.296875,
+     "p95": 826.256640625
+    },
+    "warm.private_working_set_mb": {
+     "n": 3,
+     "median": 789.796875,
+     "min": 788.828125,
+     "max": 790.19140625,
+     "p95": 790.151953125
+    },
+    "warm.commit_mb": {
+     "n": 3,
+     "median": 1449.2578125,
+     "min": 1449.16796875,
+     "max": 1450.0390625,
+     "p95": 1449.9609375
+    },
+    "warm.threads": {
+     "n": 3,
+     "median": 198,
+     "min": 198,
+     "max": 198,
+     "p95": 198.0
+    },
+    "warm.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "after_new_length.working_set_mb": {
+     "n": 3,
+     "median": 2040.35546875,
+     "min": 2039.2890625,
+     "max": 2040.7421875,
+     "p95": 2040.703515625
+    },
+    "after_new_length.private_working_set_mb": {
+     "n": 3,
+     "median": 2004.0546875,
+     "min": 2002.99609375,
+     "max": 2004.453125,
+     "p95": 2004.41328125
+    },
+    "after_new_length.commit_mb": {
+     "n": 3,
+     "median": 3631.0625,
+     "min": 3629.8984375,
+     "max": 3631.46875,
+     "p95": 3631.428125
+    },
+    "after_new_length.threads": {
+     "n": 3,
+     "median": 195,
+     "min": 194,
+     "max": 198,
+     "p95": 197.7
+    },
+    "after_new_length.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "after_dictation.working_set_mb": {
+     "n": 3,
+     "median": 2052.046875,
+     "min": 2050.8671875,
+     "max": 2063.93359375,
+     "p95": 2062.744921875
+    },
+    "after_dictation.private_working_set_mb": {
+     "n": 3,
+     "median": 2015.55859375,
+     "min": 2014.37109375,
+     "max": 2027.45703125,
+     "p95": 2026.2671875
+    },
+    "after_dictation.commit_mb": {
+     "n": 3,
+     "median": 3641.45703125,
+     "min": 3640.30078125,
+     "max": 3641.57421875,
+     "p95": 3641.5625
+    },
+    "after_dictation.threads": {
+     "n": 3,
+     "median": 192,
+     "min": 192,
+     "max": 195,
+     "p95": 194.7
+    },
+    "after_dictation.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "idle_30s.working_set_mb": {
+     "n": 3,
+     "median": 2052.16015625,
+     "min": 2051.78515625,
+     "max": 2064.0390625,
+     "p95": 2062.851171875
+    },
+    "idle_30s.private_working_set_mb": {
+     "n": 3,
+     "median": 2015.66015625,
+     "min": 2015.29296875,
+     "max": 2027.55859375,
+     "p95": 2026.36875
+    },
+    "idle_30s.commit_mb": {
+     "n": 3,
+     "median": 3642.4921875,
+     "min": 3642.21875,
+     "max": 3642.51171875,
+     "p95": 3642.509765625
+    },
+    "idle_30s.threads": {
+     "n": 3,
+     "median": 194,
+     "min": 192,
+     "max": 195,
+     "p95": 194.9
+    },
+    "idle_30s.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "peak_working_set_mb": {
+     "n": 3,
+     "median": 2172.90234375,
+     "min": 2171.9140625,
+     "max": 2173.38671875,
+     "p95": 2173.33828125
+    },
+    "peak_commit_mb": {
+     "n": 3,
+     "median": 3765.0,
+     "min": 3764.12890625,
+     "max": 3765.58203125,
+     "p95": 3765.523828125
+    },
+    "cpu_total_s": {
+     "n": 3,
+     "median": 2279.8125,
+     "min": 1470.296875,
+     "max": 2723.0,
+     "p95": 2678.68125
+    },
+    "cpu_load_and_warm_s": {
+     "n": 3,
+     "median": 106.59375,
+     "min": 74.765625,
+     "max": 108.515625,
+     "p95": 108.3234375
+    },
+    "idle_cpu_0_5s": {
+     "n": 3,
+     "median": 11.390625,
+     "min": 11.046875,
+     "max": 11.40625,
+     "p95": 11.4046875
+    },
+    "idle_cpu_5_30s": {
+     "n": 3,
+     "median": 0.078125,
+     "min": 0.046875,
+     "max": 0.078125,
+     "p95": 0.078125
+    },
+    "errors": {
+     "n": 3,
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "p95": 0.0
+    },
+    "empty_transcripts": {
+     "n": 3,
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "p95": 0.0
+    },
+    "new_length.short.first_ms": {
+     "n": 3,
+     "median": 2182.5645999997505,
+     "min": 794.4594999971741,
+     "max": 2291.6680999987875,
+     "p95": 2280.757749998884
+    },
+    "new_length.short.ms": {
+     "n": 6,
+     "median": 1695.8818999992218,
+     "min": 494.7874999998021,
+     "max": 2831.567900000664,
+     "p95": 2822.605100000146
+    },
+    "new_length.en.first_ms": {
+     "n": 3,
+     "median": 3170.4585000006773,
+     "min": 859.3585000016901,
+     "max": 3386.8242999997165,
+     "p95": 3365.1877199998125
+    },
+    "new_length.en.ms": {
+     "n": 6,
+     "median": 2085.996649999288,
+     "min": 715.9189999983937,
+     "max": 3282.0826999995916,
+     "p95": 3249.338075000196
+    },
+    "new_length.pt.first_ms": {
+     "n": 3,
+     "median": 3195.078200002172,
+     "min": 1120.0750000025437,
+     "max": 3257.3071000006166,
+     "p95": 3251.084210000772
+    },
+    "new_length.pt.ms": {
+     "n": 6,
+     "median": 2243.8845500000753,
+     "min": 1106.7612000006193,
+     "max": 3789.918399997987,
+     "p95": 3684.658799998033
+    },
+    "new_length.mid.first_ms": {
+     "n": 3,
+     "median": 5026.902300000074,
+     "min": 1815.570700000535,
+     "max": 5114.244199998211,
+     "p95": 5105.510009998397
+    },
+    "new_length.mid.ms": {
+     "n": 6,
+     "median": 3200.855099999899,
+     "min": 1353.3755999997084,
+     "max": 5016.898699999729,
+     "p95": 5000.907650000045
+    },
+    "new_length.long.first_ms": {
+     "n": 3,
+     "median": 8153.5621999973955,
+     "min": 2119.8698000007425,
+     "max": 8208.467700002075,
+     "p95": 8202.977150001607
+    },
+    "new_length.long.ms": {
+     "n": 6,
+     "median": 5587.555449999854,
+     "min": 2114.3124000009266,
+     "max": 8859.86480000065,
+     "p95": 8739.945000000262
+    },
+    "new_length.xlong.first_ms": {
+     "n": 3,
+     "median": 17106.961699999374,
+     "min": 4567.774800001644,
+     "max": 17308.89649999881,
+     "p95": 17288.703019998866
+    },
+    "new_length.xlong.ms": {
+     "n": 6,
+     "median": 17269.55645000089,
+     "min": 4304.504100000486,
+     "max": 17776.197299997875,
+     "p95": 17740.708799998174
+    },
+    "same_length.short.ms": {
+     "n": 6,
+     "median": 831.7860000006476,
+     "min": 525.4502999996475,
+     "max": 2801.12999999983,
+     "p95": 2786.9143999996595
+    },
+    "same_length.en.ms": {
+     "n": 6,
+     "median": 1298.1268000021373,
+     "min": 917.6772000027995,
+     "max": 3277.3266000003787,
+     "p95": 3265.746900000522
+    },
+    "same_length.mid.ms": {
+     "n": 6,
+     "median": 1795.479600001272,
+     "min": 1391.7320000000473,
+     "max": 4961.015099997894,
+     "p95": 4913.343524998709
+    },
+    "overlay_busy.short.ms": {
+     "n": 6,
+     "median": 891.7971999999281,
+     "min": 442.2119000009843,
+     "max": 2832.5977999993484,
+     "p95": 2752.991674999066
+    },
+    "overlay_busy.en.ms": {
+     "n": 6,
+     "median": 946.6769999999087,
+     "min": 711.747600002127,
+     "max": 3302.9435999997077,
+     "p95": 3285.9259249999013
+    },
+    "overlay_busy.mid.ms": {
+     "n": 6,
+     "median": 1865.6274499990104,
+     "min": 1564.41459999769,
+     "max": 5002.696299998206,
+     "p95": 4995.491199998469
+    },
+    "dictation.all.ms": {
+     "n": 36,
+     "median": 1949.9286499994923,
+     "min": 1047.7730999991763,
+     "max": 3986.1553000009735,
+     "p95": 3928.112974999749
+    },
+    "dictation_polish_mock.all.ms": {
+     "n": 18,
+     "median": 2799.2958999984694,
+     "min": 1080.7897999984561,
+     "max": 3559.7736000017903,
+     "p95": 3520.377035002275
+    },
+    "pcore_share.new_length": {
+     "n": 3,
+     "median": 0.2777777777777778,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 0.9277777777777777
+    },
+    "pcore_share.same_length": {
+     "n": 3,
+     "median": 0.7777777777777778,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 0.9777777777777777
+    },
+    "pcore_share.overlay_busy": {
+     "n": 3,
+     "median": 1.0,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 1.0
+    },
+    "pcore_share.dictation": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "pcore_share.dictation_polish_mock": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 0.8999999999999999
+    },
+    "wer.en": {
+     "n": 9,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "wer.pt": {
+     "n": 9,
+     "median": 0.08333333333333333,
+     "min": 0.08333333333333333,
+     "max": 0.08333333333333333,
+     "p95": 0.08333333333333333
+    }
+   }
+  },
+  "notag": {
+   "failed_runs": 0,
+   "runs": 3,
+   "source_digests": [
+    "0faaf966a1901cd5"
+   ],
+   "metrics": {
+    "import_s": {
+     "n": 3,
+     "median": 0.36894070000198553,
+     "min": 0.35772089999954915,
+     "max": 0.379424899998412,
+     "p95": 0.37837647999876933
+    },
+    "load_s": {
+     "n": 3,
+     "median": 2.3775690000002214,
+     "min": 2.339667799999006,
+     "max": 2.428245600000082,
+     "p95": 2.423177940000096
+    },
+    "warm_up_s": {
+     "n": 3,
+     "median": 1.7893970999975863,
+     "min": 1.206357700000808,
+     "max": 4.992913500002032,
+     "p95": 4.672561860001588
+    },
+    "ready_since_start_s": {
+     "n": 3,
+     "median": 5.0352476,
+     "min": 4.3943505,
+     "max": 8.6477616,
+     "p95": 8.2865102
+    },
+    "imported.working_set_mb": {
+     "n": 3,
+     "median": 76.41796875,
+     "min": 76.26171875,
+     "max": 76.625,
+     "p95": 76.604296875
+    },
+    "imported.private_working_set_mb": {
+     "n": 3,
+     "median": 46.86328125,
+     "min": 46.71484375,
+     "max": 47.0703125,
+     "p95": 47.049609375
+    },
+    "imported.commit_mb": {
+     "n": 3,
+     "median": 51.34375,
+     "min": 51.140625,
+     "max": 51.46875,
+     "p95": 51.45625
+    },
+    "imported.threads": {
+     "n": 3,
+     "median": 8,
+     "min": 8,
+     "max": 8,
+     "p95": 8.0
+    },
+    "imported.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "loaded.working_set_mb": {
+     "n": 3,
+     "median": 758.65234375,
+     "min": 758.31640625,
+     "max": 758.76953125,
+     "p95": 758.7578125
+    },
+    "loaded.private_working_set_mb": {
+     "n": 3,
+     "median": 724.74609375,
+     "min": 724.3984375,
+     "max": 724.85546875,
+     "p95": 724.84453125
+    },
+    "loaded.commit_mb": {
+     "n": 3,
+     "median": 732.484375,
+     "min": 731.83984375,
+     "max": 732.56640625,
+     "p95": 732.558203125
+    },
+    "loaded.threads": {
+     "n": 3,
+     "median": 46,
+     "min": 46,
+     "max": 46,
+     "p95": 46.0
+    },
+    "loaded.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "warm.working_set_mb": {
+     "n": 3,
+     "median": 803.06640625,
+     "min": 802.51953125,
+     "max": 803.17578125,
+     "p95": 803.16484375
+    },
+    "warm.private_working_set_mb": {
+     "n": 3,
+     "median": 766.96484375,
+     "min": 766.4296875,
+     "max": 767.078125,
+     "p95": 767.066796875
+    },
+    "warm.commit_mb": {
+     "n": 3,
+     "median": 817.4765625,
+     "min": 817.16015625,
+     "max": 817.6328125,
+     "p95": 817.6171875
+    },
+    "warm.threads": {
+     "n": 3,
+     "median": 65,
+     "min": 65,
+     "max": 65,
+     "p95": 65.0
+    },
+    "warm.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "after_new_length.working_set_mb": {
+     "n": 3,
+     "median": 2005.296875,
+     "min": 2005.09375,
+     "max": 2006.71875,
+     "p95": 2006.5765625
+    },
+    "after_new_length.private_working_set_mb": {
+     "n": 3,
+     "median": 1969.00390625,
+     "min": 1968.8046875,
+     "max": 1970.44140625,
+     "p95": 1970.29765625
+    },
+    "after_new_length.commit_mb": {
+     "n": 3,
+     "median": 2999.32421875,
+     "min": 2999.171875,
+     "max": 3000.6953125,
+     "p95": 3000.558203125
+    },
+    "after_new_length.threads": {
+     "n": 3,
+     "median": 65,
+     "min": 61,
+     "max": 65,
+     "p95": 65.0
+    },
+    "after_new_length.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "after_dictation.working_set_mb": {
+     "n": 3,
+     "median": 2015.42578125,
+     "min": 2015.3125,
+     "max": 2016.55078125,
+     "p95": 2016.43828125
+    },
+    "after_dictation.private_working_set_mb": {
+     "n": 3,
+     "median": 1978.94921875,
+     "min": 1978.83203125,
+     "max": 1980.078125,
+     "p95": 1979.965234375
+    },
+    "after_dictation.commit_mb": {
+     "n": 3,
+     "median": 3008.3984375,
+     "min": 3008.08984375,
+     "max": 3009.44921875,
+     "p95": 3009.344140625
+    },
+    "after_dictation.threads": {
+     "n": 3,
+     "median": 62,
+     "min": 59,
+     "max": 62,
+     "p95": 62.0
+    },
+    "after_dictation.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "idle_30s.working_set_mb": {
+     "n": 3,
+     "median": 2016.63671875,
+     "min": 2015.66015625,
+     "max": 2016.64453125,
+     "p95": 2016.64375
+    },
+    "idle_30s.private_working_set_mb": {
+     "n": 3,
+     "median": 1980.16015625,
+     "min": 1979.17578125,
+     "max": 1980.1640625,
+     "p95": 1980.163671875
+    },
+    "idle_30s.commit_mb": {
+     "n": 3,
+     "median": 3010.2421875,
+     "min": 3008.35546875,
+     "max": 3010.52734375,
+     "p95": 3010.498828125
+    },
+    "idle_30s.threads": {
+     "n": 3,
+     "median": 62,
+     "min": 59,
+     "max": 62,
+     "p95": 62.0
+    },
+    "idle_30s.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "peak_working_set_mb": {
+     "n": 3,
+     "median": 2137.93359375,
+     "min": 2137.61328125,
+     "max": 2139.296875,
+     "p95": 2139.160546875
+    },
+    "peak_commit_mb": {
+     "n": 3,
+     "median": 3132.9375,
+     "min": 3132.7265625,
+     "max": 3134.28125,
+     "p95": 3134.146875
+    },
+    "cpu_total_s": {
+     "n": 3,
+     "median": 1572.90625,
+     "min": 1452.453125,
+     "max": 2817.671875,
+     "p95": 2693.1953125
+    },
+    "cpu_load_and_warm_s": {
+     "n": 3,
+     "median": 40.765625,
+     "min": 33.3125,
+     "max": 68.71875,
+     "p95": 65.9234375
+    },
+    "idle_cpu_0_5s": {
+     "n": 3,
+     "median": 10.203125,
+     "min": 8.265625,
+     "max": 11.765625,
+     "p95": 11.609375
+    },
+    "idle_cpu_5_30s": {
+     "n": 3,
+     "median": 0.046875,
+     "min": 0.03125,
+     "max": 0.078125,
+     "p95": 0.075
+    },
+    "errors": {
+     "n": 3,
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "p95": 0.0
+    },
+    "empty_transcripts": {
+     "n": 3,
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "p95": 0.0
+    },
+    "new_length.short.first_ms": {
+     "n": 3,
+     "median": 924.4328999993741,
+     "min": 922.4262999996427,
+     "max": 2077.3521999981313,
+     "p95": 1962.0602699982555
+    },
+    "new_length.short.ms": {
+     "n": 6,
+     "median": 965.6814000009035,
+     "min": 603.6168000027828,
+     "max": 2767.387299998518,
+     "p95": 2729.86627499904
+    },
+    "new_length.en.first_ms": {
+     "n": 3,
+     "median": 1237.2826999999234,
+     "min": 1157.0892999989155,
+     "max": 3264.629799999966,
+     "p95": 3061.895089999962
+    },
+    "new_length.en.ms": {
+     "n": 6,
+     "median": 1105.8272500013118,
+     "min": 888.8000000006286,
+     "max": 3273.420100002113,
+     "p95": 3218.567550001353
+    },
+    "new_length.pt.first_ms": {
+     "n": 3,
+     "median": 1175.2867999966838,
+     "min": 1168.3974000006856,
+     "max": 3404.98750000188,
+     "p95": 3182.0174300013605
+    },
+    "new_length.pt.ms": {
+     "n": 6,
+     "median": 1314.6348500013119,
+     "min": 1122.5736999986111,
+     "max": 3433.193900000333,
+     "p95": 3360.204125000564
+    },
+    "new_length.mid.first_ms": {
+     "n": 3,
+     "median": 1694.6386999989045,
+     "min": 1474.6956000017235,
+     "max": 4900.891599998431,
+     "p95": 4580.266309998478
+    },
+    "new_length.mid.ms": {
+     "n": 6,
+     "median": 1890.4753499991784,
+     "min": 1539.4726999984414,
+     "max": 4772.8838000002725,
+     "p95": 4770.675375000792
+    },
+    "new_length.long.first_ms": {
+     "n": 3,
+     "median": 2979.776900003344,
+     "min": 2690.629799999442,
+     "max": 8191.0822999998345,
+     "p95": 7669.951760000185
+    },
+    "new_length.long.ms": {
+     "n": 6,
+     "median": 3199.146399998426,
+     "min": 2294.933299999684,
+     "max": 8422.923099999025,
+     "p95": 8394.461549999505
+    },
+    "new_length.xlong.first_ms": {
+     "n": 3,
+     "median": 6518.322799998714,
+     "min": 5899.588500000391,
+     "max": 17757.87710000077,
+     "p95": 16633.921670000564
+    },
+    "new_length.xlong.ms": {
+     "n": 6,
+     "median": 6070.752500001618,
+     "min": 4609.025400000974,
+     "max": 17196.755500001018,
+     "p95": 17158.206975000212
+    },
+    "same_length.short.ms": {
+     "n": 6,
+     "median": 986.0787500001607,
+     "min": 253.49609999830136,
+     "max": 2880.144200000359,
+     "p95": 2789.475599999605
+    },
+    "same_length.en.ms": {
+     "n": 6,
+     "median": 1315.6974499997887,
+     "min": 1158.1632000015816,
+     "max": 3353.600700000243,
+     "p95": 3348.40505000102
+    },
+    "same_length.mid.ms": {
+     "n": 6,
+     "median": 1877.4883000005502,
+     "min": 1379.9174000014318,
+     "max": 5474.419499998476,
+     "p95": 5413.415399998485
+    },
+    "overlay_busy.short.ms": {
+     "n": 6,
+     "median": 890.3491499986558,
+     "min": 465.1052000008349,
+     "max": 2854.752399998688,
+     "p95": 2799.0149499992185
+    },
+    "overlay_busy.en.ms": {
+     "n": 6,
+     "median": 1064.3640000016603,
+     "min": 417.8915999982564,
+     "max": 3609.310199997708,
+     "p95": 3523.237349997544
+    },
+    "overlay_busy.mid.ms": {
+     "n": 6,
+     "median": 1852.6719500005129,
+     "min": 1521.153999998205,
+     "max": 5921.835799999826,
+     "p95": 5783.262850000028
+    },
+    "dictation.all.ms": {
+     "n": 36,
+     "median": 1471.7811000009533,
+     "min": 456.74119999966933,
+     "max": 4983.077900000353,
+     "p95": 4723.067299998547
+    },
+    "dictation_polish_mock.all.ms": {
+     "n": 18,
+     "median": 1391.9064499987144,
+     "min": 970.9622999980638,
+     "max": 3398.9870000004885,
+     "p95": 3355.8738100013215
+    },
+    "pcore_share.new_length": {
+     "n": 3,
+     "median": 1.0,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 1.0
+    },
+    "pcore_share.same_length": {
+     "n": 3,
+     "median": 0.6666666666666666,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 0.9666666666666666
+    },
+    "pcore_share.overlay_busy": {
+     "n": 3,
+     "median": 1.0,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 1.0
+    },
+    "pcore_share.dictation": {
+     "n": 3,
+     "median": 0.9166666666666666,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 0.9916666666666667
+    },
+    "pcore_share.dictation_polish_mock": {
+     "n": 3,
+     "median": 1.0,
+     "min": 0.0,
+     "max": 1.0,
+     "p95": 1.0
+    },
+    "wer.en": {
+     "n": 9,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "wer.pt": {
+     "n": 9,
+     "median": 0.08333333333333333,
+     "min": 0.08333333333333333,
+     "max": 0.08333333333333333,
+     "p95": 0.08333333333333333
+    }
+   }
+  },
+  "final": {
+   "failed_runs": 0,
+   "runs": 3,
+   "source_digests": [
+    "4fc7953e9760a865"
+   ],
+   "metrics": {
+    "import_s": {
+     "n": 3,
+     "median": 0.35909869999886723,
+     "min": 0.358494600000995,
+     "max": 0.3750976000010269,
+     "p95": 0.3734977100008109
+    },
+    "load_s": {
+     "n": 3,
+     "median": 2.443980799998826,
+     "min": 2.419824600001448,
+     "max": 2.4512469000001147,
+     "p95": 2.450520289999986
+    },
+    "warm_up_s": {
+     "n": 3,
+     "median": 1.3810462999972515,
+     "min": 1.2315334000013536,
+     "max": 1.4935313999994833,
+     "p95": 1.4822828899992602
+    },
+    "ready_since_start_s": {
+     "n": 3,
+     "median": 4.7302584,
+     "min": 4.4724242,
+     "max": 4.7709603,
+     "p95": 4.766890109999999
+    },
+    "imported.working_set_mb": {
+     "n": 3,
+     "median": 76.3984375,
+     "min": 76.16015625,
+     "max": 76.55078125,
+     "p95": 76.535546875
+    },
+    "imported.private_working_set_mb": {
+     "n": 3,
+     "median": 46.84765625,
+     "min": 46.60546875,
+     "max": 47.0,
+     "p95": 46.984765625
+    },
+    "imported.commit_mb": {
+     "n": 3,
+     "median": 51.2734375,
+     "min": 51.09765625,
+     "max": 51.45703125,
+     "p95": 51.438671875
+    },
+    "imported.threads": {
+     "n": 3,
+     "median": 8,
+     "min": 8,
+     "max": 8,
+     "p95": 8.0
+    },
+    "imported.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "loaded.working_set_mb": {
+     "n": 3,
+     "median": 758.61328125,
+     "min": 758.40625,
+     "max": 758.82421875,
+     "p95": 758.803125
+    },
+    "loaded.private_working_set_mb": {
+     "n": 3,
+     "median": 724.703125,
+     "min": 724.4921875,
+     "max": 724.9140625,
+     "p95": 724.89296875
+    },
+    "loaded.commit_mb": {
+     "n": 3,
+     "median": 732.2109375,
+     "min": 732.05078125,
+     "max": 732.39453125,
+     "p95": 732.376171875
+    },
+    "loaded.threads": {
+     "n": 3,
+     "median": 46,
+     "min": 46,
+     "max": 46,
+     "p95": 46.0
+    },
+    "loaded.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "warm.working_set_mb": {
+     "n": 3,
+     "median": 803.12109375,
+     "min": 802.90625,
+     "max": 803.24609375,
+     "p95": 803.23359375
+    },
+    "warm.private_working_set_mb": {
+     "n": 3,
+     "median": 767.0234375,
+     "min": 766.8125,
+     "max": 767.15234375,
+     "p95": 767.139453125
+    },
+    "warm.commit_mb": {
+     "n": 3,
+     "median": 817.59375,
+     "min": 817.57421875,
+     "max": 817.69140625,
+     "p95": 817.681640625
+    },
+    "warm.threads": {
+     "n": 3,
+     "median": 65,
+     "min": 65,
+     "max": 65,
+     "p95": 65.0
+    },
+    "warm.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "after_new_length.working_set_mb": {
+     "n": 3,
+     "median": 2004.62890625,
+     "min": 2004.32421875,
+     "max": 2004.890625,
+     "p95": 2004.864453125
+    },
+    "after_new_length.private_working_set_mb": {
+     "n": 3,
+     "median": 1968.3359375,
+     "min": 1968.04296875,
+     "max": 1968.609375,
+     "p95": 1968.58203125
+    },
+    "after_new_length.commit_mb": {
+     "n": 3,
+     "median": 2998.9140625,
+     "min": 2998.53515625,
+     "max": 2999.140625,
+     "p95": 2999.11796875
+    },
+    "after_new_length.threads": {
+     "n": 3,
+     "median": 65,
+     "min": 65,
+     "max": 65,
+     "p95": 65.0
+    },
+    "after_new_length.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "after_dictation.working_set_mb": {
+     "n": 3,
+     "median": 2015.4453125,
+     "min": 2014.7109375,
+     "max": 2026.62109375,
+     "p95": 2025.503515625
+    },
+    "after_dictation.private_working_set_mb": {
+     "n": 3,
+     "median": 1978.9765625,
+     "min": 1978.23046875,
+     "max": 1990.15234375,
+     "p95": 1989.034765625
+    },
+    "after_dictation.commit_mb": {
+     "n": 3,
+     "median": 3007.91796875,
+     "min": 3007.80859375,
+     "max": 3008.47265625,
+     "p95": 3008.4171875
+    },
+    "after_dictation.threads": {
+     "n": 3,
+     "median": 62,
+     "min": 62,
+     "max": 62,
+     "p95": 62.0
+    },
+    "after_dictation.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "idle_30s.working_set_mb": {
+     "n": 3,
+     "median": 2017.359375,
+     "min": 2016.69921875,
+     "max": 2028.65234375,
+     "p95": 2027.523046875
+    },
+    "idle_30s.private_working_set_mb": {
+     "n": 3,
+     "median": 1980.88671875,
+     "min": 1980.20703125,
+     "max": 1992.1796875,
+     "p95": 1991.050390625
+    },
+    "idle_30s.commit_mb": {
+     "n": 3,
+     "median": 3010.6015625,
+     "min": 3010.5859375,
+     "max": 3011.25,
+     "p95": 3011.18515625
+    },
+    "idle_30s.threads": {
+     "n": 3,
+     "median": 62,
+     "min": 59,
+     "max": 62,
+     "p95": 62.0
+    },
+    "idle_30s.gpu_dedicated_mb": {
+     "n": 3,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "peak_working_set_mb": {
+     "n": 3,
+     "median": 2137.2734375,
+     "min": 2136.90625,
+     "max": 2137.46484375,
+     "p95": 2137.445703125
+    },
+    "peak_commit_mb": {
+     "n": 3,
+     "median": 3132.5,
+     "min": 3132.09375,
+     "max": 3132.70703125,
+     "p95": 3132.686328125
+    },
+    "cpu_total_s": {
+     "n": 3,
+     "median": 1362.34375,
+     "min": 1352.640625,
+     "max": 1485.515625,
+     "p95": 1473.1984375
+    },
+    "cpu_load_and_warm_s": {
+     "n": 3,
+     "median": 34.125,
+     "min": 28.5625,
+     "max": 36.8125,
+     "p95": 36.54375
+    },
+    "idle_cpu_0_5s": {
+     "n": 3,
+     "median": 11.421875,
+     "min": 10.3125,
+     "max": 12.28125,
+     "p95": 12.1953125
+    },
+    "idle_cpu_5_30s": {
+     "n": 3,
+     "median": 0.03125,
+     "min": 0.03125,
+     "max": 0.046875,
+     "p95": 0.0453125
+    },
+    "errors": {
+     "n": 3,
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "p95": 0.0
+    },
+    "empty_transcripts": {
+     "n": 3,
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "p95": 0.0
+    },
+    "new_length.short.first_ms": {
+     "n": 3,
+     "median": 821.8627999995078,
+     "min": 526.5694999980042,
+     "max": 966.6835999996692,
+     "p95": 952.2015199996531
+    },
+    "new_length.short.ms": {
+     "n": 6,
+     "median": 783.1156499996723,
+     "min": 665.5449999998382,
+     "max": 962.0566000012332,
+     "p95": 932.6972750013738
+    },
+    "new_length.en.first_ms": {
+     "n": 3,
+     "median": 1140.386099999887,
+     "min": 808.611699998437,
+     "max": 1294.2416000005323,
+     "p95": 1278.8560500004678
+    },
+    "new_length.en.ms": {
+     "n": 6,
+     "median": 867.0656499998586,
+     "min": 652.0227000000887,
+     "max": 1287.4936000007438,
+     "p95": 1225.4031000002215
+    },
+    "new_length.pt.first_ms": {
+     "n": 3,
+     "median": 1200.5968000012217,
+     "min": 1161.20249999949,
+     "max": 1518.994100002601,
+     "p95": 1487.154370002463
+    },
+    "new_length.pt.ms": {
+     "n": 6,
+     "median": 1147.2291000009136,
+     "min": 869.1002999985358,
+     "max": 1436.3521999985096,
+     "p95": 1401.822624999113
+    },
+    "new_length.mid.first_ms": {
+     "n": 3,
+     "median": 1701.1545999994269,
+     "min": 1532.540500000323,
+     "max": 2170.9606000003987,
+     "p95": 2123.9800000003015
+    },
+    "new_length.mid.ms": {
+     "n": 6,
+     "median": 1725.02010000062,
+     "min": 1411.1913999986427,
+     "max": 2929.3187000002945,
+     "p95": 2749.9464499996975
+    },
+    "new_length.long.first_ms": {
+     "n": 3,
+     "median": 3528.4112000008463,
+     "min": 2160.8974000009766,
+     "max": 4597.564199997578,
+     "p95": 4490.648899997905
+    },
+    "new_length.long.ms": {
+     "n": 6,
+     "median": 2798.3779000005597,
+     "min": 2322.5258000020403,
+     "max": 4605.714299999818,
+     "p95": 4584.647399999994
+    },
+    "new_length.xlong.first_ms": {
+     "n": 3,
+     "median": 7358.704599999328,
+     "min": 4977.035799998703,
+     "max": 8200.081899998622,
+     "p95": 8115.944169998693
+    },
+    "new_length.xlong.ms": {
+     "n": 6,
+     "median": 5554.395200000727,
+     "min": 4587.832900000649,
+     "max": 8263.027900000452,
+     "p95": 7921.544575000553
+    },
+    "same_length.short.ms": {
+     "n": 6,
+     "median": 647.6530499985529,
+     "min": 341.60220000194386,
+     "max": 999.2139000023599,
+     "p95": 982.8285500016136
+    },
+    "same_length.en.ms": {
+     "n": 6,
+     "median": 1126.1270999984845,
+     "min": 1063.8675000009243,
+     "max": 1542.2550999974192,
+     "p95": 1468.7685249973583
+    },
+    "same_length.mid.ms": {
+     "n": 6,
+     "median": 1585.1786000002903,
+     "min": 1331.6764999981388,
+     "max": 2940.3283999999985,
+     "p95": 2910.9736250002243
+    },
+    "overlay_busy.short.ms": {
+     "n": 6,
+     "median": 680.8509000002232,
+     "min": 551.2259999995877,
+     "max": 875.7805999994162,
+     "p95": 864.4126749995849
+    },
+    "overlay_busy.en.ms": {
+     "n": 6,
+     "median": 999.7693500008609,
+     "min": 363.3036000028369,
+     "max": 1724.4918000033067,
+     "p95": 1694.6040500024537
+    },
+    "overlay_busy.mid.ms": {
+     "n": 6,
+     "median": 1664.0400999986014,
+     "min": 1462.7466999991157,
+     "max": 2961.0175999987405,
+     "p95": 2877.564949999396
+    },
+    "dictation.all.ms": {
+     "n": 36,
+     "median": 1116.8533500003832,
+     "min": 440.9338999976171,
+     "max": 3022.8223000012804,
+     "p95": 2933.5983750006562
+    },
+    "dictation_polish_mock.all.ms": {
+     "n": 18,
+     "median": 1036.2105999993219,
+     "min": 662.9929999980959,
+     "max": 1492.5286999969103,
+     "p95": 1440.424464998614
+    },
+    "pcore_share.new_length": {
+     "n": 3,
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "p95": 1.0
+    },
+    "pcore_share.same_length": {
+     "n": 3,
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "p95": 1.0
+    },
+    "pcore_share.overlay_busy": {
+     "n": 3,
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "p95": 1.0
+    },
+    "pcore_share.dictation": {
+     "n": 3,
+     "median": 1.0,
+     "min": 0.9166666666666666,
+     "max": 1.0,
+     "p95": 1.0
+    },
+    "pcore_share.dictation_polish_mock": {
+     "n": 3,
+     "median": 0.8333333333333334,
+     "min": 0.8333333333333334,
+     "max": 1.0,
+     "p95": 0.9833333333333333
+    },
+    "wer.en": {
+     "n": 9,
+     "median": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "p95": 0.0
+    },
+    "wer.pt": {
+     "n": 9,
+     "median": 0.08333333333333333,
+     "min": 0.08333333333333333,
+     "max": 0.08333333333333333,
+     "p95": 0.08333333333333333
+    }
+   }
+  }
+ },
+ "model_transcripts": {
+  "calls": 51,
+  "calls_varying_within_side": {
+   "base": 0,
+   "notag": 0,
+   "final": 0
+  },
+  "calls_differing_between_sides": 2,
+  "differences": [
+   {
+    "set": "new_length",
+    "call": 10,
+    "base": [
+     "The Quick Brown Fox jum over the lazy dog. Please send the report by Friday. H\u00e1, tudo bem. Amanh\u00e3 voa ao m\u00e9dico as 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. H\u00e1, tudo bem. Amanh\u00e3 voa ao m\u00e9dico as 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico as 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa o me."
+    ],
+    "notag": [
+     "The Quick Brown Fox jum over the lazy dog. Please send the report by Friday. H\u00e1, tudo bem. Amanh\u00e3 voa ao m\u00e9dico as 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa o me."
+    ],
+    "final": [
+     "The Quick Brown Fox jum over the lazy dog. Please send the report by Friday. H\u00e1, tudo bem. Amanh\u00e3 voa ao m\u00e9dico as 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa o me."
+    ]
+   },
+   {
+    "set": "new_length",
+    "call": 17,
+    "base": [
+     "The Quick Brown Fox jum over the lazy dog. Please send the report by Friday. Ol\u00e1, tudo bem. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog."
+    ],
+    "notag": [
+     "The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. H\u00e1, tudo bem. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog."
+    ],
+    "final": [
+     "The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. H\u00e1, tudo bem. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps the lazy dog. Please send the report by Friday. Amanh\u00e3 voa ao m\u00e9dico \u00e0s 3 horas da tarde. The Quick Brown Fox jumps over the lazy dog."
+    ]
+   }
+  ]
+ }
+}

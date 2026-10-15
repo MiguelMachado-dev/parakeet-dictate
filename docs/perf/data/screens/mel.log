@@ -1,0 +1,8 @@
+onnx_asr NemoPreprocessorNumpy('nemo128') features, one process per OPENBLAS_NUM_THREADS value (unset = default, 20 here)
+timings, OPENBLAS_NUM_THREADS=1: en 3.2 ms, long 27.9 ms, xlong 61.7 ms; unset: en 3.2 ms, long 26.9 ms, xlong 57.5 ms
+en: shape (1, 128, 597), 1 thread vs unset: max abs diff 2.027e-06, differing elements 1.17%, feature magnitude max 5.31
+long: shape (1, 128, 5001), 1 thread vs unset: max abs diff 7.451e-07, differing elements 0.83%, feature magnitude max 4.67
+xlong: shape (1, 128, 11001), 1 thread vs unset: max abs diff 7.153e-07, differing elements 0.14%, feature magnitude max 4.43
+en: identical pairs: ['unset=20']
+long: identical pairs: ['unset=20']
+xlong: identical pairs: ['unset=20']

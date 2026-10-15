@@ -1,0 +1,55 @@
+{
+ "kind": "overlay",
+ "source": "C:\\Users\\migue\\AppData\\Local\\Temp\\parakeet-perf\\base\\src\\parakeet_dictate",
+ "source_digest": "e2ba329436730af9",
+ "render": {
+  "bars@1": {
+   "frames": 1623,
+   "p50_ms": 1.779299996996997,
+   "p95_ms": 2.07415000149922,
+   "mean_ms": 1.7912837954485914
+  },
+  "bars@1.5": {
+   "frames": 1623,
+   "p50_ms": 3.8361999977496453,
+   "p95_ms": 4.353050001009251,
+   "mean_ms": 3.801918977208085
+  },
+  "fluid@1": {
+   "frames": 1623,
+   "p50_ms": 1.8477000012353528,
+   "p95_ms": 2.452589999666088,
+   "mean_ms": 1.8671545902468942
+  },
+  "fluid@1.5": {
+   "frames": 1623,
+   "p50_ms": 5.014700000174344,
+   "p95_ms": 7.7036899991071515,
+   "mean_ms": 5.146571780707266
+  }
+ },
+ "hashes": {
+  "bars@1": "8357519b8c635664629fa3b18d6a1e3ae8d569d1a0da18fb2b515bea86cd9b8f",
+  "bars@1.5": "54f52f44dd9796345483129c11d346525c785ca1afee30cc271b8f03de7898c4",
+  "fluid@1": "22f82143d78b43f40cfc7325b9449878b8ab9aef77c7d91186b71479ab703caa",
+  "fluid@1.5": "fa9765df72e1395470dd244f8caad6286fa187181c0553484050d388b589d024"
+ },
+ "meter": {
+  "calls": 6000,
+  "block": 441,
+  "p50_us": 42.04999822832178,
+  "p95_us": 55.900000006658956,
+  "hash": "c8b0465a10a72a5160484ac82a006d157daeb5f24848a1b66b497c71a2d52386"
+ },
+ "threads": 23,
+ "exit_code": 0,
+ "side": "base",
+ "sha": "da3c1895ac7921b55dc23f80083c56224092e7d9",
+ "role": "measured",
+ "index": 10,
+ "wall_s": 22.250481500002934,
+ "machine_before": {
+  "gpu": "2 %, 7137 MiB, P1"
+ },
+ "machine_cpu_busy": 0.18994393833216539
+}

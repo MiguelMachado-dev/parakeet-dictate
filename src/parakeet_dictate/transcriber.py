@@ -42,7 +42,7 @@ kernel32.SetThreadInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.
 
 def prefer_performance_cores() -> None:
     """Tag the calling thread high QoS. Untagged, Windows can run it on an efficiency core, where a
-    transcription took two to four times as long in scripts/bench_resources.py runs."""
+    transcription took two to four times as long (docs/perf/README.md)."""
     state = ThreadPowerThrottlingState(1, THREAD_POWER_THROTTLING_EXECUTION_SPEED, 0)
     kernel32.SetThreadInformation(kernel32.GetCurrentThread(), THREAD_POWER_THROTTLING, ctypes.byref(state), ctypes.sizeof(state))
 

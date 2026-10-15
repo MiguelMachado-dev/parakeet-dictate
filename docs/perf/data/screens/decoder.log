@@ -1,0 +1,13 @@
+en core 4: resample 1.2 pre 1.0 enc 41.1 decode 16.0 ms in 32 decoder calls (0.500 ms/call), 30 tokens
+en core 4: resample 0.5 pre 1.1 enc 12.6 decode 16.2 ms in 32 decoder calls (0.506 ms/call), 30 tokens
+en core 4: resample 0.4 pre 0.5 enc 13.7 decode 17.0 ms in 32 decoder calls (0.530 ms/call), 30 tokens
+mid core 4: resample 1.5 pre 1.5 enc 39.6 decode 52.0 ms in 98 decoder calls (0.531 ms/call), 85 tokens
+mid core 4: resample 1.3 pre 0.8 enc 15.9 decode 48.6 ms in 98 decoder calls (0.496 ms/call), 85 tokens
+mid core 4: resample 0.6 pre 0.7 enc 14.3 decode 46.5 ms in 98 decoder calls (0.474 ms/call), 85 tokens
+decoder input types {'encoder_outputs': 'tensor(float)', 'targets': 'tensor(int32)', 'target_length': 'tensor(int32)', 'input_states_1': 'tensor(float)', 'input_states_2': 'tensor(float)'}
+decoder cuda: p50 420 us, p95 596 us
+decoder cpu default threads: p50 3445 us, p95 6145 us
+decoder cpu 1 thread: p50 1579 us, p95 1780 us
+cpu default threads vs cuda: max abs diff 3.05e-05, argmax equal True
+cpu 1 thread vs cuda: max abs diff 3.05e-05, argmax equal True
+decoder inputs {'encoder_outputs': (dtype('float32'), (1, 1024, 1)), 'targets': (dtype('int32'), (1, 1)), 'target_length': (dtype('int32'), (1,)), 'input_states_1': (dtype('float32'), (2, 1, 640)), 'input_states_2': (dtype('float32'), (2, 1, 640))}
