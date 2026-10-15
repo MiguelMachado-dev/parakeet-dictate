@@ -1,11 +1,13 @@
 import time
 import tkinter as tk
+import uuid
 from dataclasses import replace
 
 import pytest
 
 from parakeet_dictate import settings_window
 from parakeet_dictate.config import PostprocessConfig
+from parakeet_dictate.instance import WAIT_OBJECT_0, kernel32
 from parakeet_dictate.settings_store import KEY_NAMES, SettingsStore
 from parakeet_dictate.settings_window import SettingsWindow
 
@@ -148,3 +150,27 @@ def test_loading_a_saved_provider_and_rules_back_into_widgets(window):
     assert window.vars["overlay"].get() == "Bars"
     assert window.vars["postprocess.provider"].get() == "Anthropic (Claude)"
     assert window.vars["postprocess.thinking"].get() and window.vars["postprocess.effort"].get() == "Max"
+
+
+@pytest.fixture
+def launches(monkeypatch) -> list[tuple[str, ...]]:
+    """apply_settings under a reload event name of its own, so nothing reaches a running app."""
+    monkeypatch.setattr(settings_window, "RELOAD_EVENT_NAME", f"{settings_window.RELOAD_EVENT_NAME}-test-{uuid.uuid4().hex}")
+    launched = []
+    monkeypatch.setattr(settings_window, "launch_background", lambda *args: launched.append(args))
+    return launched
+
+
+def test_saving_while_the_app_runs_asks_it_to_reload(launches):
+    event = kernel32.CreateEventW(None, True, False, settings_window.RELOAD_EVENT_NAME)
+    try:
+        assert "reload after the current dictation" in settings_window.apply_settings()
+        assert kernel32.WaitForSingleObject(event, 0) == WAIT_OBJECT_0
+    finally:
+        kernel32.CloseHandle(event)
+    assert launches == []
+
+
+def test_saving_while_the_app_is_closed_starts_it(launches):
+    assert "Starting Parakeet Dictate" in settings_window.apply_settings()
+    assert launches == [("--notify-ready",)]
