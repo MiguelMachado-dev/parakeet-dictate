@@ -220,7 +220,7 @@ Memory is sampled after import, load, warm-up, the new-length set, the dictation
 
 ```powershell
 uv run python scripts/bench_resources.py model --side base=<da3c189>/src --side final=src --model-dir $MODEL --runs 5 --warmup 1 --reps 5 --out <folder>
-uv run python scripts/bench_resources.py model --provider cpu --side base=<da3c189>/src --side final=src --model-dir $MODEL --runs 3 --warmup 1 --reps 1 --out <folder>
+uv run python scripts/bench_resources.py model --provider cpu --side base=<da3c189>/src --side final=src --model-dir $MODEL --runs 3 --warmup 1 --reps 3 --out <folder>
 uv run python scripts/bench_resources.py settings --side base=<da3c189>/src --side final=src --runs 5 --warmup 1 --out <folder>
 uv run python scripts/bench_resources.py overlay --side base=<da3c189>/src --side final=src --runs 5 --warmup 1 --out <folder>
 uv run python scripts/bench_resources.py compare <folder> <folder> --before-side base --after-side final

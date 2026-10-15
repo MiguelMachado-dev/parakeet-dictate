@@ -20,7 +20,7 @@ Commits, oldest first:
 | 35fb1f7, c052e96, dd45218 | Harness: the cores each call ran on, p95 and counts in tables, `--only`, `summary --markdown`, overlay pixel checks. |
 | 38e4a05 | 6. `session.force_spinning_stop` on the CPU provider's sessions. |
 | e88bda8 | Tests for `apply_settings`, which commit 5 touched. |
-| The commit after e88bda8 | This folder: the report, the stages data, the screens and the decision log. |
+| 1ff30f6 and the commit after it | This folder: the report, the stages data, the screens and the decision log. |
 
 The full suite passed at e88bda8, 311 tests, 8 of them new: 6 in `tests/test_transcriber.py` and 2 in `tests/test_settings_window.py`. The tests of the QoS tag, of the lazy resampler and of `apply_settings` each failed against a deliberately broken version of the code they cover.
 
