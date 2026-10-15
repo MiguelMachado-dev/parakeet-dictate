@@ -129,8 +129,22 @@ final class Dictation {
     }
 
     func post(_ event: Event) {
+        let began = ProcessInfo.processInfo.systemUptime
+        defer {
+            let ms = Int((ProcessInfo.processInfo.systemUptime - began) * 1000)
+            if ms >= 50 {
+                Log.warning("handling \(describe(event)) took \(ms) ms on the main thread")
+            }
+        }
         if case .hotkeyUp(let t) = event {
             releasedAt = t
+        }
+        // The tap runs on its own thread, so a late event means the main thread was busy.
+        if case .hotkeyDown(let t) = event, let late = Self.lateMs(since: t) {
+            Log.warning("HotkeyDown reached the main thread \(late) ms after the tap saw it")
+        }
+        if case .hotkeyUp(let t) = event, let late = Self.lateMs(since: t) {
+            Log.warning("HotkeyUp reached the main thread \(late) ms after the tap saw it")
         }
         let previous = state
         let (next, effects) = step(previous, event, tapThreshold: 0.3, polish: polishOn)
@@ -154,6 +168,11 @@ final class Dictation {
         }
     }
 
+    private static func lateMs(since t: Double) -> Int? {
+        let late = Int((ProcessInfo.processInfo.systemUptime - t) * 1000)
+        return late >= 50 ? late : nil
+    }
+
     /// After the current step's effects, like an event queued on the Windows controller thread.
     private func postLater(_ event: Event) {
         DispatchQueue.main.async { [weak self] in self?.post(event) }
@@ -165,7 +184,7 @@ final class Dictation {
             readRules(log: false)
             do {
                 try recorder.start()
-                Log.info("recording from \(recorder.deviceName)")
+                Log.info("recording from \(recorder.deviceName), started in \(recorder.startLaps)")
             } catch {
                 Log.error("microphone did not start: \(error)")
                 postLater(.recordingFailed("\(error)"))
@@ -196,7 +215,12 @@ final class Dictation {
             Log.info("pasted \(text.count) chars, sent \(sinceRelease) ms after the hotkey release")
         case .playSound(let cue):
             if settings.sounds {
+                let started = ProcessInfo.processInfo.systemUptime
                 cues.play(cue)
+                let ms = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+                if ms >= 20 {
+                    Log.warning("the \(cue.rawValue) sound took \(ms) ms to start")
+                }
             }
         case .polish(let text, let requestID):
             polish(text, requestID: requestID)
@@ -212,6 +236,8 @@ final class Dictation {
         let instructions = self.instructions
         let started = Date()
         transcription = Task {
+            // The task starts on the main thread, so this is how long the main thread kept it waiting.
+            let waited = Int(Date().timeIntervalSince(started) * 1000)
             do {
                 let text: String
                 switch engine {
@@ -227,7 +253,7 @@ final class Dictation {
                 let seconds = Double(samples.count) / Resampler.modelRate
                 Log.info(
                     "transcribed \(String(format: "%.1f", seconds)) s on \(engine.title) in "
-                        + "\(Int(Date().timeIntervalSince(started) * 1000)) ms: \(text.count) chars")
+                        + "\(Int(Date().timeIntervalSince(started) * 1000)) ms (started after \(waited) ms): \(text.count) chars")
                 post(.transcriptReady(text, requestID: nextRequestID))
                 nextRequestID += 1
             } catch is CancellationError {

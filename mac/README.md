@@ -77,7 +77,7 @@ The model still cleans up the transcript, then follows the rule, even where it a
 
 ## Check from the terminal
 
-The app's binary has four checks that use its real code and settings, without the menu bar:
+The app's binary has five checks that use its real code and settings, without the menu bar:
 
 ```sh
 APP="mac/build/Parakeet Dictate.app/Contents/MacOS/ParakeetDictate"
@@ -85,7 +85,10 @@ APP="mac/build/Parakeet Dictate.app/Contents/MacOS/ParakeetDictate"
 "$APP" --check-server tests/fixtures/pt.wav                        # the PC in Settings
 "$APP" --check-polish "um so the meeting is uh friday"             # the provider and key in Settings
 "$APP" --check-media    # pauses what is playing for 1.5 s, then plays it again
+open -W -n --stdout /dev/stdout "mac/build/Parakeet Dictate.app" --args --check-recorder 6 5
 ```
+
+`--check-recorder [rounds] [pause]` records 2 s per round from the default microphone, transcribes it on this Mac, and prints where the microphone's start and stop spent their time and how long the main thread stayed busy after them, with the sounds on odd rounds only, then pauses 5 s. It needs the app's Microphone permission, so it goes through `open`, which launches the bundle as itself; run from a terminal, the binary would ask for the terminal's permission instead.
 
 `PARAKEET_SERVER="<url> <token>"` points `--check-server` at another server. `PARAKEET_INSTRUCTIONS="Translate the transcript to English."` gives `--check-polish` and `--check-server` a rule's instructions. `mac/scripts/fake_pc_server.py` runs the Windows app's server code on the Mac with a stand-in model and GLM, to check the client without the PC; its docstring has the command.
 
