@@ -215,12 +215,7 @@ final class Dictation {
             Log.info("pasted \(text.count) chars, sent \(sinceRelease) ms after the hotkey release")
         case .playSound(let cue):
             if settings.sounds {
-                let started = ProcessInfo.processInfo.systemUptime
                 cues.play(cue)
-                let ms = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
-                if ms >= 20 {
-                    Log.warning("the \(cue.rawValue) sound took \(ms) ms to start")
-                }
             }
         case .polish(let text, let requestID):
             polish(text, requestID: requestID)

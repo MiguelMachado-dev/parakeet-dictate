@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import DictateCore
 
@@ -83,24 +84,34 @@ final class Paster {
     }
 }
 
-/// The start, stop, cancel, and error tones.
-@MainActor
-final class Cues {
-    private let sounds: [Cue: NSSound]
+/// The start, stop, cancel, and error tones. They play on their own queue: right after the microphone stops,
+/// starting a sound on AirPods took up to 733 ms, and on the main thread the transcription waited for it.
+final class Cues: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "cues", qos: .userInitiated)
+    // Only touched on the queue.
+    private var players: [Cue: AVAudioPlayer] = [:]
 
     init() {
-        var sounds: [Cue: NSSound] = [:]
-        for cue in Cue.allCases {
-            sounds[cue] = NSSound(data: Tones.wav(cue))
+        queue.async {
+            for cue in Cue.allCases {
+                self.players[cue] = try? AVAudioPlayer(data: Tones.wav(cue))
+            }
         }
-        self.sounds = sounds
     }
 
     func play(_ cue: Cue) {
-        guard let sound = sounds[cue] else {
-            return
+        queue.async {
+            guard let player = self.players[cue] else {
+                return
+            }
+            let started = ProcessInfo.processInfo.systemUptime
+            player.stop()
+            player.currentTime = 0
+            player.play()
+            let ms = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            if ms >= 20 {
+                Log.warning("the \(cue.rawValue) sound took \(ms) ms to start")
+            }
         }
-        sound.stop()
-        sound.play()
     }
 }
