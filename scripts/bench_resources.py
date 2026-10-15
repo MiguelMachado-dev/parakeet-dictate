@@ -625,6 +625,10 @@ def summarize(out: Path) -> dict:
             side["metrics"] = {key: spread(values) for key, values in METRICS[kind](side_rows).items()}
     if "model" in summary:
         summary["model_transcripts"] = transcript_check(out)
+    if "overlay" in summary:
+        hashes = frame_hashes(out)
+        summary["overlay_frames"] = {"distinct_per_side": {side: len(seen) for side, seen in hashes.items()},
+                                     "distinct_across_sides": len(set().union(*hashes.values()))}
     return summary
 
 
@@ -708,6 +712,15 @@ def transcript_check(out: Path) -> dict:
             "differences": differ}
 
 
+def frame_hashes(out: Path) -> dict[str, set[str]]:
+    """The distinct sets of pixel hashes each side's overlay runs rendered: one per side when frames are equal."""
+    hashes: dict[str, set[str]] = {}
+    for path in sorted(out.glob("overlay-*-measured.json")):
+        row = json.loads(path.read_text(encoding="utf-8"))
+        hashes.setdefault(row["side"], set()).add(json.dumps(row["hashes"], sort_keys=True))
+    return hashes
+
+
 METRICS = {
     "model": model_metrics,
     "settings": lambda rows: {key: [r[key] for r in rows if key in r] for key in
@@ -736,6 +749,9 @@ def print_summary(summary: dict) -> None:
     if check := summary.get("model_transcripts"):
         print(f"\ntranscripts: {check['calls']} call positions; varying within a side: {check['calls_varying_within_side']}; "
               f"differing between sides: {check['calls_differing_between_sides']}")
+    if check := summary.get("overlay_frames"):
+        print(f"\nframes: distinct pixel hash sets per side {check['distinct_per_side']}, "
+              f"across sides {check['distinct_across_sides']}")
 
 
 def markdown_summary(summary: dict, only: str | None) -> str:
@@ -800,6 +816,10 @@ def compare(before: Path, after: Path, before_side: str | None, after_side: str 
         differ = sorted(p for p in positions if texts_b[p].get(b_name) != texts_a[p].get(a_name))
         lines.append(f"Transcripts: {len(positions)} call positions compared, {len(differ)} differ"
                      + (f": {differ}" if differ else "."))
+    if b["kind"] == "overlay":
+        seen = frame_hashes(before).get(b_name, set()) | frame_hashes(after).get(a_name, set())
+        lines.append("Frames: every run of both sides rendered the same pixels." if len(seen) == 1
+                     else f"Frames: the runs rendered {len(seen)} different sets of pixels.")
     return "\n".join(lines)
 
 
