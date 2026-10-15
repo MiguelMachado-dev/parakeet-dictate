@@ -4,7 +4,7 @@ Where the performance and memory work stood when it paused on 2026-10-14, and ho
 
 ## State
 
-The work lives on branch `t3/performance-memory-benchmarks`, in the worktree `C:\Users\migue\.t3\worktrees\parakeet-dictate\t3-073be6d8`, on top of da3c189. Nothing was pushed or merged. The installed app in `C:\Users\migue\www\parakeet-dictate` was not changed; it ran through every measurement, and its `models` folder was only read.
+The work lives on branch `t3/performance-memory-benchmarks`, in the worktree `C:\Users\migue\.t3\worktrees\parakeet-dictate\t3-073be6d8`, on top of da3c189. During the measurements, the installed app in `C:\Users\migue\www\parakeet-dictate` was not changed; it ran through every measurement, and its `models` folder was only read. Afterwards, on 2026-10-14 and at the user's request, the branch was fast-forwarded into the local `master` at cb40be0, which is the installed app's checkout, and the app was started on the new code from the Desktop shortcut after the user quit it. Nothing was pushed, so `origin/master` is behind.
 
 Commits, oldest first:
 
@@ -37,7 +37,19 @@ On CUDA, da3c189 against the final tree, 5 processes each: ready 5.91 s to 3.30 
    ```
 
    Then add `table compare $D/stages/model-cpu-final $D/stages/model-cpu-final --before-side base --after-side final` to `tables.sh`, regenerate `tables.md`, and let that table replace the two CPU tables in the README's Summary. Expect 2 differing transcripts, the OpenBLAS rounding the README explains.
-2. **Check the installed app after integration.** The harness is not the tray app. After installing the branch, compare the app's own counters with those it showed on da3c189 while idle (pid 34960: 233 threads, 4602 MB of dedicated GPU memory, 1298 MB working set, 6990 MB commit), dictate with the microphone, save Settings during and after a dictation, and run `scripts/e2e_check.py`. That script needs the tray app stopped and pastes into the foreground window, so it waits for a moment the machine is free.
+2. **Finish checking the installed app.** The harness is not the tray app. The app's own counters are checked. They were read idle with `Get-Process` and the "GPU Process Memory" counter, on da3c189 80 s after a restart and one dictation, and on cb40be0 47 s after a start with no dictation:
+
+   | | da3c189 | cb40be0 |
+   |---|---:|---:|
+   | threads | 234 | 23 |
+   | working set | 1275 MB | 1201 MB |
+   | commit | 6865 MB | 5776 MB |
+   | dedicated GPU memory | 4504 MB | 4098 MB |
+   | CPU time since start | 73.8 s | 3.1 s |
+   | start to ready, from `dictate.log` | 7.3 s | 2.6 s |
+   | warm-up transcriptions, from `dictate.log` | 4027 ms and 227 ms | 421 ms and 64 ms |
+
+   Still to do: dictate with the microphone in hold and toggle modes, open Settings from the tray, save Settings during and after a dictation, and run `scripts/e2e_check.py`. That script needs the tray app stopped and pastes into the foreground window, so it waits for a moment the machine is free.
 3. **Optional: the private memory warm-up adds.** On CUDA, the model process's private working set grows by about 610 MB during the two warm-up transcriptions, on every side. A VMMap or heap breakdown would show whether any of it is avoidable.
 4. **Optional: the console script.** `uv run parakeet-dictate --settings` enters through `app.main` and still imports the app before Settings. Pointing the script entry at a dispatcher like `__main__`'s would give it the same saving as the tray icon's path.
 5. **Optional: a cold start.** Every measurement had the model in the file cache. A first start after boot was not measured.
@@ -56,8 +68,8 @@ The base tree is da3c189 exported the same way. The experiment trees were 35fb1f
 
 ## Rules the work kept
 
-- Never modify, update or restart the installed app. Read its models only by explicit path.
+- While measuring, never modify, update or restart the installed app. Read its models only by explicit path.
 - Never run the full app or `scripts/e2e_check.py` while the installed app runs, never signal its named events, and never force-kill it. Stop it only with `--quit` after confirming it is idle, and restore it from the Desktop shortcut.
 - Keep secrets out of reports and data. The benchmark's post-processing runs against a local mock, never a real provider.
 - One harness session at a time, alternating sides, with a warm-up process per side. Do not edit `scripts/bench_resources.py` while a session runs, since every child process reads it again.
-- No push, pull request or merge from this branch. Integrating and installing is a separate, deliberate step.
+- No push or pull request. Merging into the local `master` and installing waited for the user to ask, and the restart waited for the user to quit the app.
