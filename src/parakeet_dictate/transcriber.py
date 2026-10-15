@@ -160,6 +160,10 @@ def _load(model_dir: Path, *, cuda: bool, cudnn_conv_algo_search: str | None = N
     else:
         providers = ["CPUExecutionProvider"]
         quantization = "int8"
+        # The encoder needs the default pool of a thread per core, but every session's pool spins after each
+        # run, through the other sessions' runs and for seconds after a transcription ends.
+        options = onnxruntime.SessionOptions()
+        options.add_session_config_entry("session.force_spinning_stop", "1")
     model = LazyResamplerManager(options, providers).create_asr(MODEL_NAME, model_dir, quantization=quantization)
     transcriber = Transcriber(model, model.asr._encoder.get_providers()[0], quantization)
     log.info("loaded %s on %s in %.1f s", MODEL_NAME, transcriber.label, time.perf_counter() - t0)
