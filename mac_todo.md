@@ -94,3 +94,21 @@ Verificado em 2026-10-12 com o `--check-glm` e a chave da Z.ai: com `Translate t
 
 - [ ] Instalar em `/Applications` com `mac/scripts/build-app.sh --install` e ligar **Open at Login** no menu.
 - [ ] Comparar o Parakeet Ultra (`AsrModelVersion.ultra` no FluidAudio, mesmo tamanho, mais preciso segundo o FluidAudio) com o v3 em português.
+
+## 9. Reuniões (fase 1)
+
+Transcrição manual pelo menu (**Start Meeting Transcription**), em duas faixas (microfone = `Me`, saída de áudio do Mac = `Others`), para um `.md` em `~/Documents/Parakeet/Meetings`. Ainda sem deteção automática; essa é a fase 2. Detalhes na secção Meetings de `mac/README.md`. Implementado sem poder compilar no Windows: o primeiro passo é mesmo ver se compila.
+
+- [ ] `swift test --package-path mac`: passam também os novos `SpeechSegmenterTests` e `MeetingTranscriptTests`.
+- [ ] `mac/scripts/build-app.sh --install` compila e instala sem erros.
+- [ ] `open -W -n --stdout /dev/stdout "mac/build/Parakeet Dictate.app" --args --check-meeting 20`: falar e pôr um vídeo com fala a tocar ao mesmo tempo. Na primeira vez o macOS pede a permissão de áudio do sistema; aceitar. No fim imprime o `.md` com linhas `Me:` (a tua voz) e `Others:` (o vídeo).
+- [ ] Se `Others` vier vazio e o log disser `peak levels Me ..., Others 0`, a permissão ficou por dar: Definições do Sistema > Privacidade e Segurança > Gravação de ecrã e áudio do sistema, ligar o Parakeet Dictate, e repetir o passo anterior.
+- [ ] Reunião a sério no Zoom, com auscultadores: **Start Meeting Transcription** antes de entrar, **Stop** no fim (o menu mostra o tempo decorrido). O ficheiro abre sozinho; as falas e os tempos batem. Incluir pausas longas, falas curtas ("ok", "sim") e gente a falar por cima, para ver os cortes do segmentador.
+- [ ] O mesmo no Meet, no browser: os outros entram em `Others`. Um vídeo a tocar noutra tab ao mesmo tempo também entra: é a limitação conhecida da fase 1, só confirmar que é isso e não outra coisa.
+- [ ] Sem auscultadores, com colunas: os outros aparecem nas duas faixas. Esperado; só confirmar que nada parte.
+- [ ] Com **Transcribe on the PC** escolhido, **Start Meeting Transcription** recusa com um alerta a explicar. Durante uma reunião a decorrer, trocar para o PC no menu também recusa.
+- [ ] Ditar com o Command direito durante a reunião: cola como sempre, e a fala também fica na faixa `Me`.
+- [ ] Quit a meio de uma reunião: o `.md` fica fechado, com rodapé e tudo o que já tinha sido transcrito.
+- [ ] Reunião longa (30 min ou mais): abrir o `.md` a meio para confirmar que vai crescendo, e no fim ver o log sem segmentos "failed".
+
+Se os cortes das falas não agradarem (frases partidas a meio ou juntas demais), os knobs estão nos defaults de `SpeechSegmenter` em `mac/Sources/DictateCore/SpeechSegmenter.swift`: `silenceSeconds` (pausa para fechar uma fala), `speechRMS` (o que conta como fala) e `maxSegmentSeconds`.

@@ -24,6 +24,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Parakeet Dictate records your voice while you hold the hotkey, to turn it into text.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Parakeet Dictate captures this Mac's audio output while you transcribe a meeting, to transcribe the other participants.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Parakeet Dictate sends your dictation to the PC on your network when you choose to transcribe on the PC.</string>
 	<key>NSAppTransportSecurity</key>

@@ -9,6 +9,9 @@ import DictateCore
 // `--check-recorder [rounds] [pause]` records like a dictation and times where the microphone's start and stop spend
 // their time, and how long the main thread stays busy after them. It needs the app's Microphone permission,
 // so launch the bundle: open -W -n --stdout /dev/stdout "mac/build/Parakeet Dictate.app" --args --check-recorder
+// `--check-meeting [seconds]` transcribes the microphone and the system audio into a meeting file for that
+// long and prints it, to check the meeting captures and the system audio permission outside a real
+// meeting. Like --check-recorder it needs the app's permissions, so launch the bundle with `open`.
 // PARAKEET_SERVER="<url> <token>" points --check-server somewhere other than the PC in Settings.
 // PARAKEET_INSTRUCTIONS="Translate to English." gives --check-polish and --check-server an app rule's instructions.
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -187,6 +190,26 @@ case "--check-recorder":
             print("  transcribed \(chars) chars in \(Int(total * 1000)) ms, started after \(Int(waited * 1000)) ms")
             try await wait(pause)
         }
+    }
+case "--check-meeting":
+    await check("meeting") {
+        let seconds = arguments.dropFirst().first.flatMap(Double.init) ?? 15
+        let engine = LocalEngine()
+        await engine.load()
+        guard await engine.status == .ready else {
+            throw RecorderError("the local model is \(await engine.status)")
+        }
+        let meeting = await MainActor.run { MeetingController(settings: Settings(), local: engine) }
+        try await meeting.start()
+        print(
+            "transcribing the microphone and the system audio for \(Int(seconds)) s: "
+                + "speak, and play speech from another app")
+        try await Task.sleep(for: .seconds(seconds))
+        guard let url = await meeting.stop() else {
+            throw RecorderError("the meeting did not stop")
+        }
+        print("wrote \(url.path)")
+        print(String(decoding: try Data(contentsOf: url), as: UTF8.self))
     }
 default:
     Log.startFile()

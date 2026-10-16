@@ -8,6 +8,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let settings = Settings()
     private var dictation: Dictation!
+    private var meeting: MeetingController!
     private var overlay: Overlay!
     private var statusItem: NSStatusItem!
     private var settingsWindow: NSWindow?
@@ -36,6 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dictation.onStateChange = { [weak self] _ in self?.updateIcon() }
         dictation.onLocalStatus = { [weak self] _ in self?.updateIcon() }
         dictation.onServerStatus = { [weak self] _ in self?.updateIcon() }
+        meeting = MeetingController(settings: settings, local: dictation.local)
+        meeting.onStateChange = { [weak self] _ in self?.updateIcon() }
         settings.onChange = { [weak self] in
             guard let self else {
                 return
@@ -130,7 +133,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .recording: symbol = "mic.fill"
         case .transcribing, .polishing, .awaitingRelease: symbol = "ellipsis.circle"
         case .idle:
-            if !dictation.tap.running || problem != nil {
+            if meeting?.isActive == true {
+                symbol = "captions.bubble"
+            } else if !dictation.tap.running || problem != nil {
                 symbol = "exclamationmark.triangle"
             } else if case .downloading = dictation.localStatus, settings.engine == .local {
                 symbol = "arrow.down.circle"
@@ -206,6 +211,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
 
+        switch meeting.state {
+        case .idle:
+            menu.addItem(item("Start Meeting Transcription", #selector(toggleMeeting)))
+        case .recording:
+            let elapsed = MeetingTranscript.timestamp(meeting.elapsed ?? 0)
+            menu.addItem(item("Stop Meeting Transcription (\(elapsed))", #selector(toggleMeeting)))
+        case .finishing:
+            let finishing = NSMenuItem(title: "Finishing Meeting…", action: nil, keyEquivalent: "")
+            finishing.isEnabled = false
+            menu.addItem(finishing)
+        }
+        menu.addItem(item("Open Meetings Folder", #selector(openMeetingsFolder)))
+        menu.addItem(.separator())
+
         // The PC chooses its own provider; the health reply only says whether post-processing is on.
         let model = settings.polishProvider.modelName
         let polishTitle = settings.engine == .local ? "Post-process with \(model)" : "Post-process on PC"
@@ -276,6 +295,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func chooseEngine(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let engine = Engine(rawValue: raw) {
+            if engine == .server, meeting.isActive {
+                showMeetingAlert("Stop the meeting transcription before switching to the PC.")
+                return
+            }
             settings.engine = engine
             if engine == .server && settings.serverConnection == nil {
                 showSettings()
@@ -285,6 +308,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func togglePostprocess() { settings.postprocess.toggle() }
+
+    @objc private func toggleMeeting() {
+        switch meeting.state {
+        case .idle:
+            Task { [weak self] in
+                do {
+                    try await self?.meeting.start()
+                } catch {
+                    Log.error("meeting transcription did not start: \(error)")
+                    self?.showMeetingAlert("Could not start: \(error)")
+                }
+            }
+        case .recording:
+            Task { [weak self] in
+                if let url = await self?.meeting.stop() {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        case .finishing:
+            break
+        }
+    }
+
+    @objc private func openMeetingsFolder() {
+        try? FileManager.default.createDirectory(at: MeetingFile.folder, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(MeetingFile.folder)
+    }
+
+    private func showMeetingAlert(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Meeting Transcription"
+        alert.informativeText = message
+        NSApp.activate(ignoringOtherApps: true)
+        _ = alert.runModal()
+    }
 
     @objc private func chooseOverlay(_ sender: NSMenuItem) {
         settings.overlay = (sender.representedObject as? String).flatMap(OverlayStyle.init(rawValue:))
@@ -328,6 +386,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        meeting?.stopForTermination()
         guard let dictation, dictation.media.paused else {
             return
         }

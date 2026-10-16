@@ -34,6 +34,16 @@ The script signs the app with a certificate it creates on first run, in its own 
 
 If another dictation app is running with the same hotkey, such as Superwhisper on Right Command, quit it or change one of the hotkeys.
 
+## Meetings
+
+**Start Meeting Transcription** in the menu transcribes a meeting as it happens and leaves a Markdown file in `~/Documents/Parakeet/Meetings` (**Open Meetings Folder** in the menu). This is phase 1: you start and stop it yourself; noticing a meeting and offering to transcribe it comes later.
+
+- Two tracks are captured side by side: your microphone, written as `Me`, and this Mac's audio output, written as `Others`, so the other participants are heard even through headphones. Everyone remote shares the Others track; telling them apart is not in phase 1. Use headphones: through speakers the microphone hears the others too, and they land on both tracks.
+- Each utterance is transcribed on this Mac as it ends and appended to the file with its time in the meeting, so a quit or a crash keeps everything up to the last finished utterance. No audio is kept and nothing is sent anywhere: meetings need **Transcribe on This Mac**, never use the PC, and are not post-processed.
+- The first meeting asks for the system audio permission, which macOS lists under Privacy & Security, Screen & System Audio Recording. Without it the Others track is silent, and the line the log writes when the meeting stops says so, since it reports each track's peak level. Meetings need macOS 14.2 or later, for the Core Audio process tap that reads the output.
+- The menu bar icon shows a captions bubble while a meeting runs, and the menu's stop item shows the elapsed time. Stopping opens the finished file. Tell the other participants you are transcribing; the app does not announce itself in the call.
+- Dictation keeps working during a meeting, and what you dictate also lands on the Me track. Switching to the PC from the menu is refused until the meeting stops, since that would unload the model the meeting is using.
+
 ## Settings
 
 Open **Settings…** from the menu.
@@ -77,7 +87,7 @@ The model still cleans up the transcript, then follows the rule, even where it a
 
 ## Check from the terminal
 
-The app's binary has five checks that use its real code and settings, without the menu bar:
+The app's binary has six checks that use its real code and settings, without the menu bar:
 
 ```sh
 APP="mac/build/Parakeet Dictate.app/Contents/MacOS/ParakeetDictate"
@@ -86,9 +96,12 @@ APP="mac/build/Parakeet Dictate.app/Contents/MacOS/ParakeetDictate"
 "$APP" --check-polish "um so the meeting is uh friday"             # the provider and key in Settings
 "$APP" --check-media    # pauses what is playing for 1.5 s, then plays it again
 open -W -n --stdout /dev/stdout "mac/build/Parakeet Dictate.app" --args --check-recorder 6 5
+open -W -n --stdout /dev/stdout "mac/build/Parakeet Dictate.app" --args --check-meeting 20     # a meeting, from both tracks
 ```
 
 `--check-recorder [rounds] [pause]` records 2 s per round from the default microphone, transcribes it on this Mac, and prints where the microphone's start and stop spent their time and how long the main thread stayed busy after them, with the sounds on odd rounds only, then pauses 5 s. It needs the app's Microphone permission, so it goes through `open`, which launches the bundle as itself; run from a terminal, the binary would ask for the terminal's permission instead.
+
+`--check-meeting [seconds]` runs a meeting transcription for that long (15 s by default) and prints the file it wrote; speak and play speech from another app to exercise both tracks. It goes through `open` for the same reason as `--check-recorder`, and its first run is where macOS asks for the system audio permission.
 
 `PARAKEET_SERVER="<url> <token>"` points `--check-server` at another server. `PARAKEET_INSTRUCTIONS="Translate the transcript to English."` gives `--check-polish` and `--check-server` a rule's instructions. `mac/scripts/fake_pc_server.py` runs the Windows app's server code on the Mac with a stand-in model and GLM, to check the client without the PC; its docstring has the command.
 
@@ -96,7 +109,7 @@ open -W -n --stdout /dev/stdout "mac/build/Parakeet Dictate.app" --args --check-
 
 ```sh
 cd mac
-swift test    # the reducer, the PC client, GLM, Claude, WAV, tones, resampling, the meter, the overlay scene and styles
+swift test    # the reducer, the PC client, GLM, Claude, WAV, tones, resampling, the meter, the overlay scene and styles, the meeting segmenter and transcript
 swift build   # a debug build; run the app itself from the bundle so macOS applies its permissions
 ```
 
