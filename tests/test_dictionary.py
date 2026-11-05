@@ -6,7 +6,7 @@ import pytest
 from parakeet_dictate.dictionary import PersonalDictionary, Replacement
 
 
-@pytest.mark.parametrize("case", json.loads((Path(__file__).parent / "fixtures/dictionary.json").read_text()))
+@pytest.mark.parametrize("case", json.loads((Path(__file__).parent / "fixtures/dictionary.json").read_text(encoding="utf-8")))
 def test_shared_mac_and_windows_corrections(case):
     dictionary = PersonalDictionary(tuple(case["words"]), tuple(Replacement(**entry) for entry in case["replacements"]))
     assert dictionary.apply(case["input"]) == case["output"]
