@@ -36,42 +36,23 @@ If another dictation app is running with the same hotkey, such as Superwhisper o
 
 ## Settings
 
-Open **Settings…** from the menu.
+Open **Settings…** from the menu, or start the app with `--settings`. The window has five tabs and reopens on the last one.
 
-| Setting | What it does |
+| Tab | What it has |
 | --- | --- |
-| Transcribe on | This Mac or the PC. Also in the menu. |
-| Hotkey | Right Command (default), Right Option, Right Control, Right Shift, or F13. |
-| Add a space after each dictation | On by default. |
-| Overlay | Fluid (default), Bars, or Off. Also in the menu. |
-| Overlay position | Bottom (default) or Top, just under the menu bar. A Mac addition. Also in the menu's Overlay submenu. |
-| Sounds | The start, stop, cancel, and error tones of the Windows app. |
-| Pause media while recording | On by default. A Mac addition. Also in the menu. |
-| URL and Token | The PC's server. **Paste Connection Info** reads the two lines that the tray's **Copy Mac connection info** copies on the PC. **Test Connection** checks them. |
-| Post-process | On This Mac, needs the chosen provider's key. On the PC, sent with each request, and the PC post-processes with its own provider, key, and settings, whatever provider is chosen here. Also in the menu. |
-| Provider | Z.ai (GLM), the default, through the GLM Coding Plan, or Anthropic (Claude). The Windows app chooses this in `config.toml`. |
-| Z.ai API key, Anthropic API key | Kept in the Keychain, like the PC token. Each shows when its provider is chosen. |
-| Model | Anthropic only: Claude Haiku 5.5 (default), Claude Sonnet 5.5, or Other, for any model ID typed below it. |
-| Thinking | Anthropic only. Off (default) is the fastest: the model writes the cleaned text without reasoning first. On, it reasons first, for as long as the effort asks. |
-| Effort | Anthropic only: Low (default), Medium, High, Extra high, or Max. With thinking off the API takes High or below, so the higher two show only with thinking on. |
-| Extra instructions | Appended to the prompt, for names and jargon, as in `config.toml`. |
-| App rules | Opens **App Rules…**, also in the menu. On Windows, open **Settings… > App rules** from the tray. |
+| General | **Status**: the Microphone and Accessibility permissions, with a button to grant each one missing, and whether the model or the PC is ready. The hotkey: Right Command (default), Right Option, Right Control, Right Shift, or F13. The overlay: Fluid (default), Bars, or Off, at the Bottom (default) or the Top, just under the menu bar. Add a space after each dictation (on), Sounds, the Windows app's tones (on), Pause media while recording (on), and Open at login. |
+| Transcription | This Mac or the PC, and its status, with the model's download progress. With the PC: its URL and token, kept in the Keychain. **Paste Connection Info** reads the two lines that the tray's **Copy Mac connection info** copies on the PC. **Test Connection** checks them. |
+| Post-processing | **Post-process**. On This Mac, it needs the chosen provider's key; on the PC, it is sent with each request, and the PC post-processes with its own provider, key, and settings, so the rest of the tab hides. The provider: Z.ai (GLM), the default, through the GLM Coding Plan, or Anthropic (Claude). Each has its own API key, kept in the Keychain; **Test GLM** or **Test Claude** cleans a short sample with the values in the window. Claude's model: Claude Haiku 5.5 (default), Claude Sonnet 5.5, or Other, for any model ID. Thinking, off (default), is the fastest; on, the model reasons first, for as long as the effort asks. Effort: Low (default), Medium, High, Extra high, or Max; the API takes the last two only with thinking, so choosing either turns it on. Extra instructions are added to the prompt, for names and jargon, as in `config.toml`. **Advanced** has GLM's model, endpoint, reasoning effort, and timeout, or Claude's timeout. |
+| Dictionary | The personal dictionary below. **Personal Dictionary…** in the menu opens this tab. |
+| App Rules | The rules below. **App Rules…** in the menu opens this tab. On Windows, open **Settings… > App rules** from the tray. |
+
+Text fields save once typing pauses for half a second, or when the window closes.
 
 Claude Sonnet 5.5 turns thinking off with `between_tools`, the other models with `disabled`; a typed model that cannot turn it off, such as Claude Opus 5.5, fails every request with thinking off, and the log says why. Requests to Claude Sonnet 5.5 also turn on the API's server-side fallback, which re-runs a declined request on Claude Sonnet 5. Claude Haiku 5.5 has none, so a declined request pastes the raw transcript, like any other failure.
 
-The other GLM settings of `config.toml`, and Claude's timeout, are defaults you can change from the terminal, then quit and reopen the app:
-
-```sh
-defaults write dev.miguelmachado.parakeet-dictate glmModel glm-5.3
-defaults write dev.miguelmachado.parakeet-dictate glmReasoningEffort low
-defaults write dev.miguelmachado.parakeet-dictate glmTimeout -float 8
-defaults write dev.miguelmachado.parakeet-dictate glmEndpoint https://api.z.ai/api/coding/paas/v4/chat/completions
-defaults write dev.miguelmachado.parakeet-dictate claudeTimeout -float 8
-```
-
 ### Personal dictionary
 
-Open **Personal Dictionary…** in the menu, or **Settings… > Edit Personal Dictionary…**. Enter preferred spellings one per line, such as `PI` and `harness`. Under **Replacements**, fill in **Original** and **Replace with**, such as `PY` and `PI`. Click **+** to the right to add a row and **−** to remove one. **Add PI / harness example** fills in that example. **Try it** previews corrections locally without calling a provider. Click **Save Dictionary**; the next dictation uses it, with no engine reload. Empty rows are ignored; incomplete entries or duplicate sources cannot be saved.
+Open **Personal Dictionary…** in the menu, or the **Dictionary** tab of Settings. Enter preferred spellings one per line, such as `PI` and `harness`. Under **Replacements**, fill in **Original** and **Replace with**, such as `PY` and `PI`. Click **+** to the right to add a row and **−** to remove one. **Add PI / harness example** fills in that example. **Try it** previews corrections locally without calling a provider. Click **Save Dictionary**; the next dictation uses it, with no engine reload. Empty rows are ignored; incomplete entries or duplicate sources cannot be saved.
 
 Preferred spellings guide AI cleanup when it is enabled, and preserve matching words' capitalization before pasting. They do not change the ASR model or teach it pronunciation; use a replacement for a recurring error. Replacements apply once locally after AI cleanup, including when cleanup is off, fails, or is skipped. They ignore case and match whole words or phrases, with longer matches first and explicit replacements ahead of preferred spellings. Inserted text is not replaced again. Identifiers, file paths, dotted names, and email addresses are left alone. Sources are literal text, not regular expressions; use specific phrases for ambiguous terms.
 

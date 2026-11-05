@@ -9,6 +9,7 @@ import DictateCore
 // `--check-recorder [rounds] [pause]` records like a dictation and times where the microphone's start and stop spend
 // their time, and how long the main thread stays busy after them. It needs the app's Microphone permission,
 // so launch the bundle: open -W -n --stdout /dev/stdout "mac/build/Parakeet Dictate.app" --args --check-recorder
+// `--settings` starts the menu bar app with Settings open, like the Windows app's `--settings`.
 // PARAKEET_SERVER="<url> <token>" points --check-server somewhere other than the PC in Settings.
 // PARAKEET_INSTRUCTIONS="Translate to English." gives --check-polish and --check-server an app rule's instructions.
 let arguments = Array(CommandLine.arguments.dropFirst())

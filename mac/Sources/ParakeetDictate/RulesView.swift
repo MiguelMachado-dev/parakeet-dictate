@@ -3,7 +3,7 @@ import DictateCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The rules window's transient state. A class for the same reason as ConnectionTest.
+/// The rules window's transient state. A class for the same reason as TestRun.
 final class RuleEditor: ObservableObject {
     @Published var selection: AppRule.ID?
     /// What "Add App" offers first: the apps running now, which include the one to dictate into.

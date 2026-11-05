@@ -5,14 +5,14 @@ import ServiceManagement
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
     private let settings = Settings()
     private var dictation: Dictation!
     private var overlay: Overlay!
     private var statusItem: NSStatusItem!
+    private let status = AppStatus()
     private var settingsWindow: NSWindow?
-    private var rulesWindow: NSWindow?
-    private var dictionaryWindow: NSWindow?
+    private var settingsTabs: SettingsTabs?
     private var permissionPoll: Timer?
     private var healthTimer: Timer?
 
@@ -58,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if settings.engine == .server && settings.serverConnection == nil {
+        if CommandLine.arguments.contains("--settings") || (settings.engine == .server && settings.serverConnection == nil) {
             showSettings()
         }
     }
@@ -91,8 +91,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func requestMicrophone() {
         if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
+            AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
                 Log.info("microphone access \(granted ? "granted" : "denied")")
+                DispatchQueue.main.async { self?.updateIcon() }
             }
         }
     }
@@ -143,6 +144,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         image?.isTemplate = true
         statusItem.button?.image = image
         statusItem.button?.toolTip = "Parakeet Dictate: \(engineLine)"
+        refreshStatus()
+    }
+
+    /// Copies what the Settings window shows; assigning only what changed keeps it from redrawing on each dictation.
+    private func refreshStatus() {
+        let microphone = AVCaptureDevice.authorizationStatus(for: .audio)
+        if status.microphone != microphone { status.microphone = microphone }
+        if status.accessibility != dictation.tap.running { status.accessibility = dictation.tap.running }
+        if status.local != dictation.localStatus { status.local = dictation.localStatus }
+        if status.server != dictation.serverStatus { status.server = dictation.serverStatus }
     }
 
     /// Something that stops dictation from working, for the menu's first line.
@@ -302,15 +313,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func togglePauseMedia() { settings.pauseMedia.toggle() }
 
     @objc private func toggleLogin() {
+        setOpenAtLogin(SMAppService.mainApp.status != .enabled)
+    }
+
+    private func setOpenAtLogin(_ on: Bool) {
         do {
-            if SMAppService.mainApp.status == .enabled {
-                try SMAppService.mainApp.unregister()
-            } else {
+            if on {
                 try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
             }
         } catch {
             Log.error("open at login: \(error)")
         }
+        status.openAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     @objc private func openAccessibility() {
@@ -330,6 +346,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        settings.flush()
         guard let dictation, dictation.media.paused else {
             return
         }
@@ -339,71 +356,103 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func showSettings() {
-        if settingsWindow == nil {
-            let view = SettingsView(
-                settings: settings, test: ConnectionTest(),
-                testConnection: { [weak self] in await self?.testConnection() ?? "" },
-                showRules: { [weak self] in self?.showRules() },
-                showDictionary: { [weak self] in self?.showDictionary() }
-            )
-            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-            window.title = "Parakeet Dictate Settings"
-            window.styleMask = [.titled, .closable]
-            window.isReleasedWhenClosed = false
-            window.center()
-            settingsWindow = window
-        }
-        NSApp.activate(ignoringOtherApps: true)
-        settingsWindow?.makeKeyAndOrderFront(nil)
+        openSettings(on: nil)
     }
 
     @objc func showRules() {
-        if rulesWindow == nil {
-            let editor = RuleEditor()
-            editor.selection = settings.rules.first?.id
-            let window = NSWindow(contentViewController: NSHostingController(rootView: RulesView(settings: settings, editor: editor)))
-            window.title = "App Rules"
-            window.styleMask = [.titled, .closable]
-            window.isReleasedWhenClosed = false
-            window.center()
-            rulesWindow = window
-        }
-        NSApp.activate(ignoringOtherApps: true)
-        rulesWindow?.makeKeyAndOrderFront(nil)
+        openSettings(on: .rules)
     }
 
     @objc func showDictionary() {
-        if dictionaryWindow == nil {
-            let editor = DictionaryEditor(settings.dictionary)
-            let view = DictionaryView(editor: editor) { [weak self] in self?.settings.dictionary = $0 }
-            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-            window.title = "Personal Dictionary"
-            window.styleMask = [.titled, .closable]
-            window.isReleasedWhenClosed = false
-            window.center()
-            dictionaryWindow = window
-        }
-        NSApp.activate(ignoringOtherApps: true)
-        dictionaryWindow?.makeKeyAndOrderFront(nil)
+        openSettings(on: .dictionary)
     }
 
-    private func testConnection() async -> String {
+    /// Opens Settings on `tab`, or on the tab it showed last.
+    private func openSettings(on tab: SettingsTab?) {
+        if settingsWindow == nil {
+            let actions = SettingsActions(
+                requestMicrophone: { [weak self] in self?.requestMicrophone() },
+                openMicrophoneSettings: { [weak self] in self?.openMicrophone() },
+                openAccessibilitySettings: { [weak self] in self?.openAccessibility() },
+                setOpenAtLogin: { [weak self] on in self?.setOpenAtLogin(on) },
+                testConnection: { [weak self] in
+                    await self?.testConnection() ?? TestResult(ok: false, message: "The app is quitting.")
+                }
+            )
+            let editor = RuleEditor()
+            editor.selection = settings.rules.first?.id
+            let views: [(SettingsTab, AnyView)] = [
+                (.general, AnyView(GeneralSettingsView(settings: settings, status: status, actions: actions))),
+                (.transcription, AnyView(TranscriptionSettingsView(settings: settings, status: status, test: TestRun(), actions: actions))),
+                (.postprocessing, AnyView(PostprocessingSettingsView(settings: settings, test: TestRun(), advancedShown: Disclosure()))),
+                (.rules, AnyView(RulesView(settings: settings, editor: editor))),
+                (.dictionary, AnyView(DictionaryView(editor: DictionaryEditor(settings.dictionary)) { [weak self] in
+                    self?.settings.dictionary = $0
+                })),
+            ]
+            let tabs = SettingsTabs(pages: views.map { tab, view in
+                let controller = NSHostingController(rootView: view)
+                controller.sizingOptions = .preferredContentSize
+                return (tab, controller)
+            })
+            let window = NSWindow(contentViewController: tabs)
+            window.styleMask = [.titled, .closable]
+            window.toolbarStyle = .preference
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            settingsWindow = window
+            settingsTabs = tabs
+        }
+        if let tab {
+            settingsTabs?.select(tab)
+        }
+        refreshStatus()
+        status.openAtLogin = SMAppService.mainApp.status == .enabled
+        NSApp.activate(ignoringOtherApps: true)
+        if settingsWindow?.isVisible == false {
+            settingsTabs?.fitWindow()
+            settingsWindow?.center()
+        }
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Closing Settings right after typing saves the text now rather than after the pause in typing.
+    func windowWillClose(_ notification: Notification) {
+        if notification.object as? NSWindow === settingsWindow {
+            settings.flush()
+        }
+    }
+
+    /// Back from System Settings, the permissions may have changed.
+    func windowDidBecomeKey(_ notification: Notification) {
+        if notification.object as? NSWindow === settingsWindow {
+            refreshStatus()
+            status.openAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+
+    private func testConnection() async -> TestResult {
+        // checkServer below asks the client that applySettings built, so the URL and token just typed must be in it.
+        settings.flush()
         guard let connection = settings.serverConnection else {
-            return "Enter the PC's URL and token first."
+            return TestResult(ok: false, message: "Enter the PC's URL and token first.")
         }
         do {
             let postprocess = try await ServerClient(connection: connection).health()
             dictation.checkServer()
-            return postprocess ? "Connected. The PC post-processes with its selected provider." : "Connected. The PC has post-processing off or no key."
+            return TestResult(
+                ok: true,
+                message: postprocess ? "Connected. The PC post-processes with its selected provider." : "Connected. The PC has post-processing off or no key."
+            )
         } catch let error as ServerError {
             switch error {
-            case .unauthorized: return "The PC rejected the token."
+            case .unauthorized: return TestResult(ok: false, message: "The PC rejected the token.")
             case .unreachable(let reason):
-                return "No answer (\(reason)). Check that Server for Mac is on and the firewall rule is in place."
-            default: return "\(error)"
+                return TestResult(ok: false, message: "No answer (\(reason)). Check that Server for Mac is on and the firewall rule is in place.")
+            default: return TestResult(ok: false, message: "\(error)")
             }
         } catch {
-            return "\(error)"
+            return TestResult(ok: false, message: "\(error)")
         }
     }
 }

@@ -83,6 +83,21 @@ enum ClaudeEffort: String, CaseIterable, Identifiable {
     var allowsThinkingOff: Bool { self != .xhigh && self != .max }
 }
 
+/// GLM-5.3 always reasons; higher effort is slower.
+enum GlmEffort: String, CaseIterable, Identifiable {
+    case low, high, max
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .low: return "Low"
+        case .high: return "High"
+        case .max: return "Max"
+        }
+    }
+}
+
 /// The hotkey. Modifier keys arrive as flags-changed events and are told apart from their left twin
 /// by their device-dependent flag bit (NX_DEVICE*KEYMASK in IOKit).
 enum Hotkey: Int, CaseIterable, Identifiable {
@@ -119,8 +134,10 @@ enum Hotkey: Int, CaseIterable, Identifiable {
 /// Choices live in UserDefaults; the PC token and the API keys live in the Keychain.
 final class Settings: ObservableObject {
     private let defaults = UserDefaults.standard
-    /// Called after any change, on the main thread.
+    /// Called after any change, on the main thread. Text fields call it once typing pauses, or on `flush()`.
     var onChange: (() -> Void)?
+    private var pendingWrites: [String: (Settings) -> Void] = [:]
+    private var pendingFlush: DispatchWorkItem?
 
     @Published var engine: Engine {
         didSet { save(engine.rawValue, "engine") }
@@ -149,7 +166,7 @@ final class Settings: ObservableObject {
         didSet { save(overlayPosition.rawValue, "overlayPosition") }
     }
     @Published var serverURL: String {
-        didSet { save(serverURL, "serverURL") }
+        didSet { saveLater("serverURL") { $0.defaults.set($0.serverURL, forKey: "serverURL") } }
     }
     @Published var polishProvider: PolishProvider {
         didSet { save(polishProvider.rawValue, "polishProvider") }
@@ -159,10 +176,16 @@ final class Settings: ObservableObject {
     }
     /// The model ID when `claudeModel` is `.other`.
     @Published var claudeOtherModel: String {
-        didSet { save(claudeOtherModel, "claudeOtherModel") }
+        didSet { saveLater("claudeOtherModel") { $0.defaults.set($0.claudeOtherModel, forKey: "claudeOtherModel") } }
     }
     @Published var claudeEffort: ClaudeEffort {
-        didSet { save(claudeEffort.rawValue, "claudeEffort") }
+        didSet {
+            // The API takes efforts above high only with thinking on, so choosing one turns it on.
+            if !claudeEffort.allowsThinkingOff && !claudeThinking {
+                claudeThinking = true
+            }
+            save(claudeEffort.rawValue, "claudeEffort")
+        }
     }
     @Published var claudeThinking: Bool {
         didSet {
@@ -172,8 +195,24 @@ final class Settings: ObservableObject {
             save(claudeThinking, "claudeThinking")
         }
     }
+    /// The advanced settings: "" or 0 keeps GlmConfig's and ClaudeConfig's defaults.
+    @Published var glmModel: String {
+        didSet { saveLater("glmModel") { $0.defaults.set($0.glmModel, forKey: "glmModel") } }
+    }
+    @Published var glmEndpoint: String {
+        didSet { saveLater("glmEndpoint") { $0.defaults.set($0.glmEndpoint, forKey: "glmEndpoint") } }
+    }
+    @Published var glmReasoningEffort: GlmEffort {
+        didSet { save(glmReasoningEffort.rawValue, "glmReasoningEffort") }
+    }
+    @Published var glmTimeout: TimeInterval {
+        didSet { save(glmTimeout, "glmTimeout") }
+    }
+    @Published var claudeTimeout: TimeInterval {
+        didSet { save(claudeTimeout, "claudeTimeout") }
+    }
     @Published var extraInstructions: String {
-        didSet { save(extraInstructions, "extraInstructions") }
+        didSet { saveLater("extraInstructions") { $0.defaults.set($0.extraInstructions, forKey: "extraInstructions") } }
     }
     /// Saved without calling onChange: nothing needs rebuilding, since each dictation reads them as it ends.
     @Published var rules: [AppRule] {
@@ -184,13 +223,13 @@ final class Settings: ObservableObject {
         didSet { defaults.set(try? JSONEncoder().encode(dictionary), forKey: "personalDictionary") }
     }
     @Published var serverToken: String {
-        didSet { Keychain.set(serverToken, for: "server-token"); onChange?() }
+        didSet { saveLater("serverToken") { Keychain.set($0.serverToken, for: "server-token") } }
     }
     @Published var zaiAPIKey: String {
-        didSet { Keychain.set(zaiAPIKey, for: "zai-api-key"); onChange?() }
+        didSet { saveLater("zaiAPIKey") { Keychain.set($0.zaiAPIKey, for: "zai-api-key") } }
     }
     @Published var anthropicAPIKey: String {
-        didSet { Keychain.set(anthropicAPIKey, for: "anthropic-api-key"); onChange?() }
+        didSet { saveLater("anthropicAPIKey") { Keychain.set($0.anthropicAPIKey, for: "anthropic-api-key") } }
     }
 
     init() {
@@ -219,6 +258,13 @@ final class Settings: ObservableObject {
         // didSet does not run here, so a `defaults write` past high with thinking off is clamped like the toggle does.
         claudeEffort = thinking || effort.allowsThinkingOff ? effort : .high
         extraInstructions = defaults.string(forKey: "extraInstructions") ?? ""
+        glmModel = defaults.string(forKey: "glmModel") ?? ""
+        glmEndpoint = defaults.string(forKey: "glmEndpoint") ?? ""
+        glmReasoningEffort = GlmEffort(rawValue: defaults.string(forKey: "glmReasoningEffort") ?? "") ?? .low
+        let glmTimeout = defaults.double(forKey: "glmTimeout")
+        self.glmTimeout = glmTimeout > 0 ? glmTimeout : GlmConfig().timeout
+        let claudeTimeout = defaults.double(forKey: "claudeTimeout")
+        self.claudeTimeout = claudeTimeout > 0 ? claudeTimeout : ClaudeConfig().timeout
         rules = defaults.data(forKey: "appRules").flatMap { try? JSONDecoder().decode([AppRule].self, from: $0) } ?? []
         dictionary = defaults.data(forKey: "personalDictionary")
             .flatMap { try? JSONDecoder().decode(PersonalDictionary.self, from: $0) } ?? PersonalDictionary()
@@ -235,28 +281,33 @@ final class Settings: ObservableObject {
         return ServerConnection(baseURL: url, token: token)
     }
 
-    /// The GLM settings of config.example.toml. Only the extra instructions have a field in Settings;
-    /// the rest can be changed with `defaults write dev.miguelmachado.parakeet-dictate glmModel glm-5.3`.
+    /// The GLM settings of config.example.toml.
     var glmConfig: GlmConfig {
         var config = GlmConfig()
         config.extraInstructions = extraInstructions
-        if let model = defaults.string(forKey: "glmModel"), !model.isEmpty {
+        config.reasoningEffort = glmReasoningEffort.rawValue
+        let model = glmModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !model.isEmpty {
             config.model = model
         }
-        if let endpoint = defaults.string(forKey: "glmEndpoint").flatMap(URL.init(string:)) {
+        if let endpoint = glmEndpointURL {
             config.endpoint = endpoint
         }
-        if let effort = defaults.string(forKey: "glmReasoningEffort"), !effort.isEmpty {
-            config.reasoningEffort = effort
-        }
-        if defaults.double(forKey: "glmTimeout") > 0 {
-            config.timeout = defaults.double(forKey: "glmTimeout")
+        if glmTimeout > 0 {
+            config.timeout = glmTimeout
         }
         return config
     }
 
-    /// The Claude settings of the Settings window. The timeout can be changed with
-    /// `defaults write dev.miguelmachado.parakeet-dictate claudeTimeout -float 8`.
+    /// The typed endpoint, or nil when it is empty or not an http(s) URL, which keeps the default.
+    var glmEndpointURL: URL? {
+        let text = glmEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: text), ["http", "https"].contains(url.scheme?.lowercased()), url.host != nil else {
+            return nil
+        }
+        return url
+    }
+
     var claudeConfig: ClaudeConfig {
         var config = ClaudeConfig()
         config.extraInstructions = extraInstructions
@@ -268,8 +319,8 @@ final class Settings: ObservableObject {
         } else if !otherModel.isEmpty {
             config.model = otherModel
         }
-        if defaults.double(forKey: "claudeTimeout") > 0 {
-            config.timeout = defaults.double(forKey: "claudeTimeout")
+        if claudeTimeout > 0 {
+            config.timeout = claudeTimeout
         }
         return config
     }
@@ -298,6 +349,29 @@ final class Settings: ObservableObject {
 
     private func save(_ value: Any, _ key: String) {
         defaults.set(value, forKey: key)
+        onChange?()
+    }
+
+    /// Text fields change on every keystroke. Their writes wait until typing pauses, so a keystroke
+    /// neither touches the Keychain nor rebuilds the clients and pings the PC.
+    private func saveLater(_ key: String, _ write: @escaping (Settings) -> Void) {
+        pendingWrites[key] = write
+        pendingFlush?.cancel()
+        let flush = DispatchWorkItem { [weak self] in self?.flush() }
+        pendingFlush = flush
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: flush)
+    }
+
+    /// Saves the text still waiting on a pause in typing, then applies it.
+    func flush() {
+        pendingFlush?.cancel()
+        pendingFlush = nil
+        guard !pendingWrites.isEmpty else {
+            return
+        }
+        let writes = pendingWrites.values
+        pendingWrites.removeAll()
+        writes.forEach { $0(self) }
         onChange?()
     }
 }
