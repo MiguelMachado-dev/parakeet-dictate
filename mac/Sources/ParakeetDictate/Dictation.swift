@@ -33,6 +33,7 @@ final class Dictation {
     private var releasePoll: Timer?
     /// What the rules for the app in front ask of the model, since the text goes to that app. "" for no rules.
     private var instructions = ""
+    private var dictionary = PersonalDictionary()
 
     var onStateChange: ((State) -> Void)?
     /// What the overlay should show after a transition, if it changes.
@@ -116,6 +117,7 @@ final class Dictation {
     /// Reads the rules for the app in front when recording starts, to warm the model, and again when it stops,
     /// since a hands-free dictation can switch apps meanwhile.
     private func readRules(log: Bool) {
+        dictionary = settings.dictionary
         let app = NSWorkspace.shared.frontmostApplication
         let rules = settings.rules.matching(app?.bundleIdentifier)
         instructions = combinedInstructions(rules)
@@ -210,6 +212,7 @@ final class Dictation {
             transcription?.cancel()
             transcription = nil
         case .paste(let text):
+            let text = dictionary.apply(text)
             let sinceRelease = Int((ProcessInfo.processInfo.systemUptime - releasedAt) * 1000)
             paster.paste(settings.appendSpace ? text + " " : text)
             Log.info("pasted \(text.count) chars, sent \(sinceRelease) ms after the hotkey release")
@@ -228,7 +231,7 @@ final class Dictation {
         let engine = settings.engine
         let server = server
         let postprocess = self.postprocess
-        let instructions = self.instructions
+        let instructions = dictionary.instructions(appInstructions: self.instructions)
         let started = Date()
         transcription = Task {
             // The task starts on the main thread, so this is how long the main thread kept it waiting.
@@ -294,7 +297,7 @@ final class Dictation {
             post(.polishFailed(requestID: requestID, reason: "no \(settings.polishProvider.keyName) API key"))
             return
         }
-        let instructions = self.instructions
+        let instructions = dictionary.instructions(appInstructions: self.instructions)
         Task {
             do {
                 post(.polished(requestID: requestID, text: try await polisher.polish(text, instructions: instructions)))

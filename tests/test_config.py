@@ -17,7 +17,7 @@ from parakeet_dictate.config import (
 def test_example_config_uncommented_uses_defaults_and_a_disabled_example_rule(tmp_path):
     example = (ROOT / "config.example.toml").read_text(encoding="utf-8")
     settings = re.findall(r"^# (\w+ = .+|\[\w+\]|\[\[\w+\]\])$", example, flags=re.MULTILINE)
-    assert len(settings) == 26
+    assert len(settings) == 29
     path = tmp_path / "config.toml"
     path.write_text("\n".join(settings), encoding="utf-8")
     assert load_config(path) == Config(app_rules=(

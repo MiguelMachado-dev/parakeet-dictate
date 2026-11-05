@@ -63,6 +63,7 @@ Double-click the tray icon, or right-click it and choose **Settings…**. You ca
 - **General:** the dictation hotkey, GPU or CPU, overlay, sounds, trailing space, tap threshold, and model folder.
 - **Post-processing:** GLM or Claude, separate masked API keys, model, thinking, effort, timeout, and extra instructions. **Test provider** sends a short sample with the values in the window, without saving them.
 - **App rules:** add a preset or blank rule, edit its instructions, enable or disable it, and move it up or down. Add an app from the list of running executables, type its name, or browse to its `.exe`.
+- **Dictionary:** preferred spellings, exact replacements, and a live text preview. **Add PI / harness example** fills in `PI`, `harness`, and `PY => PI`; click **Save and apply** to use them.
 - **Server for Mac:** turn the server on or off and set its port and listen address.
 
 Click **Save and apply** (or press Ctrl+S). The app finishes the current local dictation, reloads with the new settings, and shows a Ready notification once the model is available. Closing the window discards unsaved changes only after you confirm. **Reload** reads the latest saved values; if another change was made from the tray or in a file while the window was open, reload before saving.
@@ -122,6 +123,30 @@ With post-processing on:
 - **Your transcripts go to the selected provider.** The app sends the transcript text over HTTPS to Z.ai or Anthropic. Audio stays on the PC. To keep local dictations entirely local, turn post-processing off and disable app rules. The log records character counts and timings, never the text.
 
 To turn it off or on, right-click the tray icon and click **Post-process with GLM** or **Post-process with Claude**. The app saves your choice in `tray_choices.json` in the project root and uses it on the next start, ahead of the `enabled` setting in `config.toml`. Without the selected provider's API key, the item is unavailable and names the missing variable, such as **Post-process with Claude (no ANTHROPIC_API_KEY)**.
+
+## Personal dictionary
+
+Open **Settings… > Dictionary**. Put preferred spellings under **Preferred spellings**, one word or phrase per line. Under **Replacements**, each row has an **Original** field and a **Replace with** field. Click **+** on the right to add a row, or **−** to remove one. For example:
+
+| Original | Replace with |
+| --- | --- |
+| PY | PI |
+| para kit | Parakeet |
+| meu link | https://example.com/meeting |
+
+Click **Save and apply**. Preferred spellings are included as vocabulary whenever AI cleanup runs, and matching words use your capitalization before pasting. A preferred spelling alone does not teach the speech recognizer a pronunciation: add an explicit replacement for a repeated error. Replacements run locally once, after any AI cleanup, and also when cleanup is off, fails, or is skipped with Esc. They ignore case, prefer the longest matching phrase, and do not reprocess inserted text. Explicit replacements take priority over preferred spellings. Matches cover whole words or phrases; substrings in identifiers, file paths, dotted names, and email addresses are left alone. A replacement is unconditional when its source matches, so use specific phrases for ambiguous words.
+
+The dictionary does not turn AI cleanup on. When cleanup runs, its vocabulary is sent with the transcript to the selected provider. Without cleanup or app rules, corrections stay local. Invalid or duplicate entries cannot be saved. Editing the text under **Try it** previews only the local corrections and makes no network request.
+
+The same configuration can be written in `config.toml` (restart after editing):
+
+```toml
+[dictionary]
+words = ["PI", "harness"]
+replacements = [{ source = "PY", target = "PI" }]
+```
+
+The PC's dictionary applies to dictations recorded on that PC. A Mac uses its own dictionary even when transcribing through the PC; see [the Mac instructions](mac/README.md#personal-dictionary).
 
 ## App rules
 

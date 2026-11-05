@@ -30,6 +30,7 @@ def config_values(config: Config) -> dict:
     except ValueError:
         values["model_dir"] = str(config.model_dir)
     values["app_rules"] = [{**rule, "apps": list(rule["apps"])} for rule in values["app_rules"]]
+    values["dictionary"] = {"words": list(config.dictionary.words), "replacements": [asdict(entry) for entry in config.dictionary.replacements]}
     return values
 
 

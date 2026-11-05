@@ -69,6 +69,14 @@ defaults write dev.miguelmachado.parakeet-dictate glmEndpoint https://api.z.ai/a
 defaults write dev.miguelmachado.parakeet-dictate claudeTimeout -float 8
 ```
 
+### Personal dictionary
+
+Open **Personal Dictionary…** in the menu, or **Settings… > Edit Personal Dictionary…**. Enter preferred spellings one per line, such as `PI` and `harness`. Under **Replacements**, fill in **Original** and **Replace with**, such as `PY` and `PI`. Click **+** to the right to add a row and **−** to remove one. **Add PI / harness example** fills in that example. **Try it** previews corrections locally without calling a provider. Click **Save Dictionary**; the next dictation uses it, with no engine reload. Empty rows are ignored; incomplete entries or duplicate sources cannot be saved.
+
+Preferred spellings guide AI cleanup when it is enabled, and preserve matching words' capitalization before pasting. They do not change the ASR model or teach it pronunciation; use a replacement for a recurring error. Replacements apply once locally after AI cleanup, including when cleanup is off, fails, or is skipped. They ignore case and match whole words or phrases, with longer matches first and explicit replacements ahead of preferred spellings. Inserted text is not replaced again. Identifiers, file paths, dotted names, and email addresses are left alone. Sources are literal text, not regular expressions; use specific phrases for ambiguous terms.
+
+The dictionary is saved on this Mac. It does not enable cloud processing. When cleanup runs on this Mac or the PC, the vocabulary travels with the transcript/instructions to that provider; final corrections always run on the Mac. The PC's own dictionary has no effect on Mac requests.
+
 ### App rules
 
 A rule gives the post-processing model instructions for dictations into certain apps, such as `Translate the transcript to English.` for Slack. Add one with **+**, from a preset or blank, then pick its apps from the ones running or from Applications. The rules apply when one of their apps is in front as a dictation ends; several rules for the same app add up, in list order.

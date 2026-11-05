@@ -14,6 +14,7 @@ struct SettingsView: View {
     @ObservedObject var test: ConnectionTest
     let testConnection: () async -> String
     let showRules: () -> Void
+    let showDictionary: () -> Void
 
     var body: some View {
         Form {
@@ -95,6 +96,10 @@ struct SettingsView: View {
                 Text("Post-processing")
             } footer: {
                 Text(postprocessingFooter).font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Personal dictionary") {
+                Button("Edit Personal Dictionary…") { showDictionary() }
             }
 
             Section {

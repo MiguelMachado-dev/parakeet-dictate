@@ -1,0 +1,11 @@
+[
+  {"words": [], "replacements": [], "input": "O PY é o harness.", "output": "O PY é o harness."},
+  {"words": ["PI", "harness"], "replacements": [{"source": "PY", "target": "PI"}], "input": "O PY é o HARNESS. py, Py e pi!", "output": "O PI é o harness. PI, PI e PI!"},
+  {"words": ["João"], "replacements": [{"source": "sao paulo", "target": "São Paulo"}], "input": "JOÃO está em SAO PAULO, não em sao paulopolis.", "output": "João está em São Paulo, não em sao paulopolis."},
+  {"words": [], "replacements": [{"source": "PY", "target": "PI"}], "input": "PYthon happy PY_name xPY PY2 caféPY PYcafé script.py /PY/test C:\\PY\\test PY.example a@PY.com https://PY.dev PY.", "output": "PYthon happy PY_name xPY PY2 caféPY PYcafé script.py /PY/test C:\\PY\\test PY.example a@PY.com https://PY.dev PI."},
+  {"words": [], "replacements": [{"source": "a", "target": "b"}, {"source": "b", "target": "c"}, {"source": "a b", "target": "long phrase"}], "input": "a b, a, b", "output": "long phrase, b, c"},
+  {"words": ["PY"], "replacements": [{"source": "PY", "target": "PI"}], "input": "py", "output": "PI"},
+  {"words": ["C++"], "replacements": [{"source": "c plus plus", "target": "C++"}, {"source": "link", "target": "https://example.com/$1?x=\\value"}], "input": "c plus plus e link", "output": "C++ e https://example.com/$1?x=\\value"},
+  {"words": [], "replacements": [{"source": "meet", "target": "my long meeting link with several words"}], "input": "meet", "output": "my long meeting link with several words"},
+  {"words": [], "replacements": [{"source": "PY", "target": "PI"}], "input": "😀 (PY): «py»? 'PY'\nPY", "output": "😀 (PI): «PI»? 'PI'\nPI"}
+]

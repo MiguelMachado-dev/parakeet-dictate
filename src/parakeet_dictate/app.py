@@ -250,6 +250,7 @@ class Dictation:
                 self._instructions = ""
                 self._recorder.discard()
             case Paste(text):
+                text = self._config.dictionary.apply(text)
                 since_release_ms = (time.perf_counter() - self._released_at) * 1000
                 try:
                     self._paste(text + " " if self._config.append_space else text)
@@ -262,7 +263,7 @@ class Dictation:
                 self._cues.play(cue)
             case Polish(text, request_id):
                 # Capture now: Esc can start another dictation before a queued request runs.
-                self._polisher.submit(self._polish, text, request_id, self._instructions)
+                self._polisher.submit(self._polish, text, request_id, self._config.dictionary.instructions(self._instructions))
                 # httpx times each network step separately and never times the DNS lookup, so this
                 # timer bounds the whole wait. When the request finishes first, the reducer ignores
                 # the timer's PolishFailed because its id is no longer current.

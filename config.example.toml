@@ -26,7 +26,7 @@
 # Model folder, relative to the project root or absolute.
 # model_dir = "models/parakeet-tdt-0.6b-v3"
 
-# Keep [postprocess], [server], and [[app_rules]] after the general settings: every
+# Keep [postprocess], [server], [dictionary], and [[app_rules]] after the general settings: every
 # setting after a table header belongs to that table, until the next header.
 
 # Post-processing: send each transcript to GLM through Z.ai or Claude through Anthropic
@@ -74,6 +74,13 @@
 
 # The IPv4 address to listen on. "0.0.0.0" listens on every network adapter.
 # bind = "0.0.0.0"
+
+# Personal dictionary for local dictations. Edit it in Settings > Dictionary.
+# Preferred spellings guide AI cleanup; whole-word replacements also work without AI.
+# Example: words = ["PI", "harness"] and replacements = [{source = "PY", target = "PI"}].
+# [dictionary]
+# words = []
+# replacements = []
 
 # App rules for local dictations. Edit them in Settings > App rules, or copy this block.
 # Uses the executable of the foreground window when recording ends, case-insensitively.

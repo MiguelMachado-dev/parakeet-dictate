@@ -10,6 +10,7 @@ import pytest
 from parakeet_dictate.app import Cues, Dictation
 from parakeet_dictate.app_rules import AppRule
 from parakeet_dictate.config import Config, PostprocessConfig
+from parakeet_dictate.dictionary import PersonalDictionary
 from parakeet_dictate.polish import create_polisher
 from parakeet_dictate.recorder import Audio
 from parakeet_dictate.reducer import (
@@ -115,14 +116,14 @@ RULES = (
 def running():
     instances = []
 
-    def start(*, rules=RULES, enabled=False, with_key=True, polisher=None, postprocess=PostprocessConfig()):
+    def start(*, rules=RULES, enabled=False, with_key=True, polisher=None, postprocess=PostprocessConfig(), dictionary=PersonalDictionary()):
         client = polisher if polisher is not None else FakePolisher() if with_key else None
         h = SimpleNamespace(
             front=["Slack.exe"], recorder=FakeRecorder(), transcriber=GatedTranscriber(),
             polisher=client, pasted=Queue(), transitions=Queue(), enabled=enabled,
         )
         h.dictation = Dictation(
-            Config(app_rules=rules, postprocess=postprocess, append_space=False),
+            Config(app_rules=rules, postprocess=postprocess, append_space=False, dictionary=dictionary),
             recorder=h.recorder, transcriber=h.transcriber, polisher=client, cues=Cues(enabled=False),
             paste=h.pasted.put, on_transition=h.transitions.put, polish_enabled=lambda: h.enabled,
             foreground_app=lambda: h.front[0],
@@ -143,6 +144,51 @@ def begin(h):
     h.recorder.started.clear()
     h.dictation.post(HotkeyDown(0))
     assert h.recorder.started.wait(5)
+
+
+def test_dictionary_does_not_enable_cloud_processing_when_toggle_is_off(running):
+    dictionary = PersonalDictionary.from_text("PI\nharness", "hi => PI")
+    h = running(rules=(), dictionary=dictionary)
+    begin(h)
+    h.dictation.post(HotkeyUp(2))
+    assert h.pasted.get(timeout=5) == "PI"
+    assert h.polisher.requests.empty() and not h.polisher.preconnected.is_set()
+
+
+def test_dictionary_is_applied_after_ai_cleanup_without_cascading(running):
+    dictionary = PersonalDictionary.from_text("harness", "hi => wrong\npolished => PI\nPI => do not cascade")
+    h = running(dictionary=dictionary)
+    begin(h)
+    h.dictation.post(HotkeyUp(2))
+    assert h.pasted.get(timeout=5) == "PI"
+    raw, instructions = h.polisher.requests.get(timeout=5)
+    assert raw == "hi" and "Translate to English." in instructions and "harness" in instructions
+
+
+@pytest.mark.parametrize("skip", ["escape", "timeout", "failure"])
+def test_dictionary_still_corrects_raw_fallback(running, skip):
+    gate = threading.Event()
+
+    class DelayedPolisher(FakePolisher):
+        def polish(self, raw, instructions=""):
+            if skip == "failure":
+                from parakeet_dictate.polish import PolishError
+                raise PolishError("test failure")
+            gate.wait(5)
+            return "late"
+
+    dictionary = PersonalDictionary.from_text("PI", "hi => PI")
+    h = running(dictionary=dictionary, polisher=DelayedPolisher(),
+                postprocess=PostprocessConfig(timeout_s=0.1 if skip == "timeout" else 8))
+    try:
+        begin(h)
+        h.dictation.post(HotkeyUp(2))
+        wait_state(h, Polishing)
+        if skip == "escape":
+            h.dictation.post(Cancel())
+        assert h.pasted.get(timeout=5) == "PI"
+    finally:
+        gate.set()
 
 
 def wait_state(h, state_type):

@@ -7,6 +7,8 @@ from dataclasses import asdict
 from tkinter import filedialog, font, messagebox, ttk
 
 from .config import ROOT, Config, ConfigError, PostprocessConfig, parse_config
+from .dictionary import PersonalDictionary
+from .dictionary_editor import ReplacementRows
 from .instance import ERROR_ALREADY_EXISTS, RELOAD_EVENT_NAME, WAIT_OBJECT_0, kernel32, launch_background, signal_event
 from .polish import PolishError, create_polisher
 from .rules_editor import RulesEditor
@@ -65,6 +67,7 @@ class SettingsWindow:
         self.notebook.pack(fill="both", expand=True)
         self._general()
         self._postprocess()
+        self._dictionary()
         self.rules = RulesEditor(self.notebook, self.changed, self.error)
         self.notebook.add(self.rules, text="App rules")
         self.pages.append(self.rules.scroll)
@@ -172,6 +175,68 @@ class SettingsWindow:
         self.test_label = ttk.Label(page, textvariable=self.test_status, style="Hint.TLabel", wraplength=420)
         self.test_label.grid(row=13, column=1, sticky="w")
 
+    def _dictionary(self):
+        page = self._page("Dictionary")
+        self._hint(page, 0, "Preferred spellings guide AI cleanup and preserve spelling before pasting. Replacements run locally even when cleanup is off, skipped, or fails.")
+        self.dictionary_fields = {}
+        ttk.Label(page, text="Preferred spellings", style="Heading.TLabel").grid(row=1, column=0, columnspan=2, sticky="w")
+        words = tk.Text(page, height=5, width=40, font="TkDefaultFont", wrap="word", relief="solid", borderwidth=1)
+        words.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(6, 6))
+        words.bind("<<Modified>>", self._dictionary_changed)
+        self.dictionary_fields["words"] = words
+        self._hint(page, 3, "One word or phrase per line, such as PI or harness.")
+        ttk.Label(page, text="Replacements", style="Heading.TLabel").grid(row=4, column=0, columnspan=2, sticky="w")
+        self.replacements = ReplacementRows(page, self._dictionary_rows_changed)
+        self.replacements.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(6, 6))
+        self._hint(page, 6, "Enter the original and its replacement. Use + to add a row and − to remove it. Matches cover whole words or phrases, ignoring case; inserted text is not replaced again.")
+        ttk.Button(page, text="Add PI / harness example", command=self._dictionary_example).grid(row=7, column=0, columnspan=2, sticky="w")
+        ttk.Label(page, text="Try it").grid(row=8, column=0, sticky="w", pady=(16, 4))
+        self.dictionary_sample = tk.StringVar(self.root)
+        ttk.Entry(page, textvariable=self.dictionary_sample).grid(row=8, column=1, sticky="ew", pady=(16, 4))
+        self.dictionary_preview = tk.StringVar(self.root)
+        self.dictionary_sample.trace_add("write", lambda *args: self._dictionary_preview())
+        ttk.Label(page, textvariable=self.dictionary_preview, wraplength=580).grid(row=9, column=0, columnspan=2, sticky="ew", pady=(4, 12))
+
+    def _draft_dictionary(self):
+        try:
+            words = PersonalDictionary.from_text(self.dictionary_fields["words"].get("1.0", "end-1c"), "").words
+            return PersonalDictionary(words, self.replacements.get_replacements())
+        except ValueError as error:
+            raise ConfigError(str(error)) from None
+
+    def _dictionary_changed(self, event):
+        if event.widget.edit_modified():
+            event.widget.edit_modified(False)
+            self.changed()
+            self._dictionary_preview()
+
+    def _dictionary_rows_changed(self):
+        self.changed()
+        self._dictionary_preview()
+
+    def _dictionary_preview(self):
+        try:
+            self.dictionary_preview.set(self._draft_dictionary().apply(self.dictionary_sample.get()))
+        except ConfigError as error:
+            self.dictionary_preview.set(str(error))
+
+    def _dictionary_example(self):
+        words = self.dictionary_fields["words"]
+        existing = {line.strip().casefold() for line in words.get("1.0", "end-1c").splitlines()}
+        for word in ("PI", "harness"):
+            if word.casefold() not in existing:
+                words.insert("end-1c", ("\n" if words.get("1.0", "end-1c") else "") + word)
+        sources = {row.source.get().strip().casefold() for row in self.replacements.rows}
+        if "py" not in sources:
+            blank = next((row for row in self.replacements.rows if not row.source.get() and not row.target.get()), None)
+            if blank is None:
+                self.replacements.add_row(source="PY", target="PI")
+            else:
+                blank.source.set("PY")
+                blank.target.set("PI")
+        self.changed()
+        self._dictionary_preview()
+
     def _server(self):
         page = self._page("Server for Mac")
         self._check(page, 0, "Allow a Mac to dictate through this PC", "server.enabled")
@@ -197,6 +262,14 @@ class SettingsWindow:
         self.extra.delete("1.0", "end")
         self.extra.insert("1.0", config.postprocess.extra_instructions)
         self.extra.edit_modified(False)
+        for key, value in (("words", config.dictionary.words_text),):
+            widget = self.dictionary_fields[key]
+            widget.delete("1.0", "end")
+            widget.insert("1.0", value)
+            widget.edit_modified(False)
+        self.replacements.set_replacements(config.dictionary.replacements)
+        self.dictionary_sample.set("O PY é o harness.")
+        self._dictionary_preview()
         self.provider_values = {provider: PostprocessConfig(provider=provider) for provider in PROVIDERS.values()}
         self.provider_values[config.postprocess.provider] = config.postprocess
         self._provider = config.postprocess.provider
@@ -288,6 +361,8 @@ class SettingsWindow:
             else: values[section] = value
         values["postprocess"]["extra_instructions"] = self.extra.get("1.0", "end-1c")
         values["app_rules"] = [{**asdict(rule), "apps": list(rule.apps)} for rule in self.rules.get_rules()]
+        dictionary = self._draft_dictionary()
+        values["dictionary"] = {"words": list(dictionary.words), "replacements": [asdict(entry) for entry in dictionary.replacements]}
         return parse_config(values)
 
     def save(self):

@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var settingsWindow: NSWindow?
     private var rulesWindow: NSWindow?
+    private var dictionaryWindow: NSWindow?
     private var permissionPoll: Timer?
     private var healthTimer: Timer?
 
@@ -260,6 +261,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(item("Settings…", #selector(showSettings), key: ","))
         menu.addItem(item("App Rules…", #selector(showRules)))
+        menu.addItem(item("Personal Dictionary…", #selector(showDictionary)))
         menu.addItem(item("Open Log", #selector(openLog)))
         menu.addItem(.separator())
         menu.addItem(item("Quit Parakeet Dictate", #selector(quit), key: "q"))
@@ -341,7 +343,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let view = SettingsView(
                 settings: settings, test: ConnectionTest(),
                 testConnection: { [weak self] in await self?.testConnection() ?? "" },
-                showRules: { [weak self] in self?.showRules() }
+                showRules: { [weak self] in self?.showRules() },
+                showDictionary: { [weak self] in self?.showDictionary() }
             )
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
             window.title = "Parakeet Dictate Settings"
@@ -367,6 +370,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         rulesWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    @objc func showDictionary() {
+        if dictionaryWindow == nil {
+            let editor = DictionaryEditor(settings.dictionary)
+            let view = DictionaryView(editor: editor) { [weak self] in self?.settings.dictionary = $0 }
+            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+            window.title = "Personal Dictionary"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            dictionaryWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        dictionaryWindow?.makeKeyAndOrderFront(nil)
     }
 
     private func testConnection() async -> String {

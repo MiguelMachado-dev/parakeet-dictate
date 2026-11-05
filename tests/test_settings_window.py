@@ -38,7 +38,7 @@ def choose_claude(window):
 
 def test_opening_settings_does_not_write_files_or_apply_changes(window):
     assert [window.notebook.tab(tab, "text") for tab in window.notebook.tabs()] == [
-        "General", "Post-processing", "App rules", "Server for Mac",
+        "General", "Post-processing", "Dictionary", "App rules", "Server for Mac",
     ]
     assert str(window.save_button["state"]) == "disabled"
     assert window.key_entry["show"] == "•"
@@ -88,6 +88,35 @@ def test_rules_can_be_added_edited_disabled_reordered_removed_and_saved(window):
     assert [rule.name for rule in window.store.load().config.app_rules] == ["English"]
     window.reload()
     assert window.rules.get_rules() == window.store.load().config.app_rules
+
+
+def test_dictionary_example_preview_validation_and_save(window):
+    window.dictionary_sample.set("PY")
+    window.root.update()
+    assert not window.dirty
+    window._dictionary_example()
+    window.root.update()
+    assert window.dictionary_preview.get() == "PI"
+    assert window.save()
+    saved = window.store.load().config.dictionary
+    assert saved.words == ("PI", "harness")
+    assert saved.apply("O PY é o HARNESS.") == "O PI é o harness."
+    row = window.replacements.add_row(after=window.replacements.rows[0])
+    row.source.set("harnes")
+    assert not window.save()
+    assert "row 2" in window.status.get()
+    assert window.store.load().config.dictionary == saved
+    row.target.set("harness")
+    assert window.save()
+    assert window.store.load().config.dictionary.apply("harnes") == "harness"
+    window.replacements.remove_row(row)
+    assert window.save()
+    window.dirty = False
+    window.reload()
+    assert window._draft_dictionary() == saved
+    blank = window.replacements.add_row()
+    assert window._draft_dictionary() == saved  # A completely empty draft row is not persisted.
+    window.replacements.remove_row(blank)
 
 
 def test_invalid_values_or_external_edits_do_not_apply(window):

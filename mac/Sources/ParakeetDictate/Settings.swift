@@ -179,6 +179,10 @@ final class Settings: ObservableObject {
     @Published var rules: [AppRule] {
         didSet { defaults.set(try? JSONEncoder().encode(rules), forKey: "appRules") }
     }
+    /// Read at recording boundaries; editing the dictionary does not reload the audio engine.
+    @Published var dictionary: PersonalDictionary {
+        didSet { defaults.set(try? JSONEncoder().encode(dictionary), forKey: "personalDictionary") }
+    }
     @Published var serverToken: String {
         didSet { Keychain.set(serverToken, for: "server-token"); onChange?() }
     }
@@ -216,6 +220,8 @@ final class Settings: ObservableObject {
         claudeEffort = thinking || effort.allowsThinkingOff ? effort : .high
         extraInstructions = defaults.string(forKey: "extraInstructions") ?? ""
         rules = defaults.data(forKey: "appRules").flatMap { try? JSONDecoder().decode([AppRule].self, from: $0) } ?? []
+        dictionary = defaults.data(forKey: "personalDictionary")
+            .flatMap { try? JSONDecoder().decode(PersonalDictionary.self, from: $0) } ?? PersonalDictionary()
         serverToken = Keychain.get("server-token") ?? ""
         zaiAPIKey = Keychain.get("zai-api-key") ?? ""
         anthropicAPIKey = Keychain.get("anthropic-api-key") ?? ""

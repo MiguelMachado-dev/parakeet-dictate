@@ -8,6 +8,7 @@ from typing import Literal
 from pynput.keyboard import Key
 
 from .app_rules import AppRule
+from .dictionary import PersonalDictionary, Replacement
 from .styles import DEFAULT_STYLE, STYLES
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -87,6 +88,7 @@ class Config:
     postprocess: PostprocessConfig = PostprocessConfig()
     server: ServerConfig = ServerConfig()
     app_rules: tuple[AppRule, ...] = ()
+    dictionary: PersonalDictionary = PersonalDictionary()
 
     @property
     def hotkey_vk(self) -> int:
@@ -180,6 +182,18 @@ def _parse(name: str, value: object) -> object:
             if not isinstance(value, list):
                 raise ConfigError("app_rules must be an array of tables, [[app_rules]]")
             return tuple(_parse_app_rule(rule, index) for index, rule in enumerate(value, 1))
+        case "dictionary":
+            if not isinstance(value, dict) or value.keys() - {"words", "replacements"}:
+                raise ConfigError("dictionary must be a [dictionary] table with words and replacements")
+            words, replacements = value.get("words", []), value.get("replacements", [])
+            if not isinstance(words, list) or not isinstance(replacements, list):
+                raise ConfigError("dictionary.words and dictionary.replacements must be arrays")
+            if any(not isinstance(entry, dict) or entry.keys() != {"source", "target"} for entry in replacements):
+                raise ConfigError("dictionary replacements must have source and target strings")
+            try:
+                return PersonalDictionary(tuple(words), tuple(Replacement(**entry) for entry in replacements))
+            except ValueError as error:
+                raise ConfigError(str(error)) from None
     raise AssertionError(name)
 
 
