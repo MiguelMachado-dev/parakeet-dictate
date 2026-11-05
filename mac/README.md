@@ -2,7 +2,7 @@
 
 A menu bar app with the Windows app's dictation: hold a key, talk, release, and the text is pasted where you type. It transcribes in one of two places, chosen in the menu:
 
-- **This Mac.** Parakeet TDT 0.6B v3, the PC's model, converted to Core ML and run on the Neural Engine through [FluidAudio](https://github.com/FluidInference/FluidAudio). A 6 s clip takes about 50 ms on an M5 Pro. The transcript then goes from the Mac to GLM through Z.ai or to Claude through Anthropic, whichever Settings names, with the same prompt and checks as `src/parakeet_dictate/polish.py`.
+- **This Mac.** Parakeet Ultra, a post-training of the PC's Parakeet TDT 0.6B v3 with the same languages, converted to Core ML and run on the Neural Engine through [FluidAudio](https://github.com/FluidInference/FluidAudio). On FLEURS it scored 4.8 % WER in Brazilian Portuguese and 4.5 % in English, against 5.7 % and 5.1 % for v3, at the same speed. A 6 s clip takes about 50 ms on an M5 Pro. The transcript then goes from the Mac to GLM through Z.ai or to Claude through Anthropic, whichever Settings names, with the same prompt and checks as `src/parakeet_dictate/polish.py`.
 - **The PC.** The audio goes to the Windows app's **Server for Mac**, which transcribes and post-processes it and sends back the text. See [Dictate from a Mac](../README.md#dictate-from-a-mac) to turn the server on, and [docs/mac-client.md](../docs/mac-client.md) for the HTTP contract.
 
 ## Build
@@ -20,7 +20,7 @@ The script signs the app with a certificate it creates on first run, in its own 
 
 1. macOS asks for the microphone. Allow it.
 2. macOS asks for Accessibility, which the app needs to see the hotkey and to paste with Cmd+V. Open System Settings, turn on **Parakeet Dictate** under Privacy & Security, Accessibility. The app notices within a second; no restart.
-3. On This Mac, the first start downloads the model, about 470 MB, to `~/Library/Application Support/FluidAudio/Models`, and compiles it for the Neural Engine, about 12 s more. The menu shows the progress. Later starts, rebuilds included, load it in under half a second.
+3. On This Mac, the first start downloads the model, about 615 MB, to `~/Library/Application Support/FluidAudio/Models`, and compiles it for the Neural Engine, about 12 s more. The menu shows the progress. Later starts, rebuilds included, load it in under half a second.
 
 ## Dictate
 

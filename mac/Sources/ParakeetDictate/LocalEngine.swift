@@ -2,7 +2,9 @@ import DictateCore
 import FluidAudio
 import Foundation
 
-/// Parakeet TDT 0.6B v3, the PC's model, converted to Core ML and run on the Neural Engine by FluidAudio.
+/// Parakeet Ultra, a post-training of the PC's Parakeet TDT 0.6B v3 with the same languages and decoder,
+/// converted to Core ML and run on the Neural Engine by FluidAudio. FluidAudio measures it more accurate than v3
+/// in English and every FLEURS language at the same speed.
 actor LocalEngine {
     enum Status: Equatable {
         case notLoaded
@@ -13,6 +15,7 @@ actor LocalEngine {
     }
 
     static let minSeconds = 0.1
+    static let version: AsrModelVersion = .ultra
 
     private var manager: AsrManager?
     private var decoderLayers = 2
@@ -29,7 +32,7 @@ actor LocalEngine {
         (statusUpdates, continuation) = AsyncStream.makeStream()
     }
 
-    /// Downloads the model on first use (about 470 MB), compiles it for this Mac, and warms it up.
+    /// Downloads the model on first use (about 615 MB), compiles it for this Mac, and warms it up.
     func load() async {
         wanted = true
         if manager != nil {
@@ -46,10 +49,10 @@ actor LocalEngine {
 
     private func loadNow() async {
         let started = Date()
-        let cached = AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: .v3), version: .v3)
+        let cached = AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: Self.version), version: Self.version)
         status = cached ? .loading : .downloading(0)
         do {
-            let models = try await AsrModels.downloadAndLoad(version: .v3) { progress in
+            let models = try await AsrModels.downloadAndLoad(version: Self.version) { progress in
                 Task { await self.downloadProgress(progress) }
             }
             let manager = AsrManager(config: .default)

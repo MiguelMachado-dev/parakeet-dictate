@@ -2,7 +2,7 @@
 
 O app está em `mac/` (como compilar e usar: `mac/README.md`). Ele transcreve em um de dois lugares, escolhido no menu:
 
-- **Neste Mac**: Parakeet TDT 0.6B v3 (o mesmo modelo do PC) em Core ML pelo FluidAudio, e GLM direto do Mac com uma chave da Z.ai.
+- **Neste Mac**: Parakeet Ultra (pós-treino do Parakeet TDT 0.6B v3 do PC, mesmos idiomas) em Core ML pelo FluidAudio, e GLM direto do Mac com uma chave da Z.ai.
 - **No PC**: manda o áudio para o **Server for Mac** do app do Windows, que transcreve e pós-processa.
 
 Itens com [x] foram verificados. O resto está implementado e espera um teste de verdade, exceto o overlay, que ainda não começou.
@@ -93,4 +93,4 @@ Verificado em 2026-10-12 com o `--check-glm` e a chave da Z.ai: com `Translate t
 ## 8. Depois
 
 - [ ] Instalar em `/Applications` com `mac/scripts/build-app.sh --install` e ligar **Open at Login** no menu.
-- [ ] Comparar o Parakeet Ultra (`AsrModelVersion.ultra` no FluidAudio, mesmo tamanho, mais preciso segundo o FluidAudio) com o v3 em português.
+- [x] Comparar o Parakeet Ultra com o v3 em português (2026-11-05). FLEURS completo (350 clipes por idioma, `fluidaudiocli fleurs-benchmark` do FluidAudio 0.17.3, neste M5 Pro): pt_br 5,7% → **4,8%** de WER, en_us 5,1% → **4,5%**, mesma velocidade (RTFx ~210). Pelo app (`--check-local`), `pt.wav` saiu idêntico a `pt.txt`, inclusive o "tudo bem?" que o v3 errava, em 47 ms. O Mac passou a usar o Ultra (download de 615 MB).
