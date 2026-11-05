@@ -23,6 +23,7 @@ from .recorder import Audio
 
 log = logging.getLogger(__name__)
 
+# onnx_asr's name for the architecture, which Parakeet Ultra shares with v3.
 MODEL_NAME = "nemo-parakeet-tdt-0.6b-v3"
 CUDA = "CUDAExecutionProvider"
 MIN_SECONDS = 0.1
@@ -166,5 +167,5 @@ def _load(model_dir: Path, *, cuda: bool, cudnn_conv_algo_search: str | None = N
         options.add_session_config_entry("session.force_spinning_stop", "1")
     model = LazyResamplerManager(options, providers).create_asr(MODEL_NAME, model_dir, quantization=quantization)
     transcriber = Transcriber(model, model.asr._encoder.get_providers()[0], quantization)
-    log.info("loaded %s on %s in %.1f s", MODEL_NAME, transcriber.label, time.perf_counter() - t0)
+    log.info("loaded %s on %s in %.1f s", model_dir.name, transcriber.label, time.perf_counter() - t0)
     return transcriber

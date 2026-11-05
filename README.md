@@ -1,6 +1,6 @@
 # Parakeet Dictate
 
-Local push-to-talk dictation for Windows 11. Hold Right Ctrl, speak English or Portuguese, release, and the text is pasted into the focused app. Speech recognition runs on your machine with NVIDIA Parakeet TDT 0.6B v3 through [onnx-asr](https://github.com/istupakov/onnx-asr), on the GPU when CUDA works and on the CPU otherwise.
+Local push-to-talk dictation for Windows 11. Hold Right Ctrl, speak English or Portuguese, release, and the text is pasted into the focused app. Speech recognition runs on your machine with [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra), Moondream's post-training of NVIDIA Parakeet TDT 0.6B v3, through [onnx-asr](https://github.com/istupakov/onnx-asr), on the GPU when CUDA works and on the CPU otherwise.
 
 ## Set up
 
@@ -12,7 +12,7 @@ You need [uv](https://docs.astral.sh/uv/) and, for GPU inference, an NVIDIA driv
 	uv sync
 	```
 
-2. Download the model (about 3.2 GB, fp32 and int8) into `models\parakeet-tdt-0.6b-v3`. Rerunning the command skips files that are already there.
+2. Download the model (about 3.2 GB, fp32 and int8) into `models\parakeet-ultra`. Rerunning the command skips files that are already there.
 
 	```powershell
 	uv run python scripts/download_model.py
@@ -194,7 +194,7 @@ The Settings window covers the options below. To edit them directly, copy `confi
 | `sounds` | `true` | Short tones for start, stop, cancel, and error. |
 | `append_space` | `true` | Adds a space after each dictation. |
 | `overlay` | `"fluid"` | The live microphone visualizer above the taskbar while you dictate. `"fluid"` or `"bars"` picks the style. With `"off"`, the app creates no window until you pick a style from the tray. |
-| `model_dir` | `"models/parakeet-tdt-0.6b-v3"` | Relative to the project root, or absolute. |
+| `model_dir` | `"models/parakeet-ultra"` | Relative to the project root, or absolute. |
 
 Post-processing settings go in a `[postprocess]` table at the end of `config.toml`:
 
@@ -234,7 +234,7 @@ Double-click `Install.cmd` in the project folder, or run:
 
 The app keeps running from the project folder and its `.venv`. The installer does the following:
 
-- It runs `uv sync` if `.venv` is missing, and downloads the model, about 3 GB, if `models\parakeet-tdt-0.6b-v3` is missing.
+- It runs `uv sync` if `.venv` is missing, and downloads the model, about 3 GB, if `models\parakeet-ultra` is missing.
 - It puts a **Parakeet Dictate** shortcut on the Desktop and in the Start menu. When you start the app from either one, it shows a notification once the model is loaded.
 - It adds Parakeet Dictate to **Settings** > **Apps** > **Installed apps**.
 

@@ -1,14 +1,29 @@
-"""Download Parakeet TDT 0.6B v3 (ONNX, fp32 and int8) into models/. Safe to rerun: files
+"""Download Parakeet Ultra (ONNX, fp32 and int8) into models/. Safe to rerun: files
 already present and unchanged are skipped."""
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
-from huggingface_hub import snapshot_download
+from huggingface_hub import HfApi, hf_hub_download
 
-REPO = "istupakov/parakeet-tdt-0.6b-v3-onnx"
-DEST = Path(__file__).resolve().parent.parent / "models" / "parakeet-tdt-0.6b-v3"
+REPO = "Olicorne/parakeet-tdt-0.6b-v3-ultra-onnx"
+REVISION = "b27f93c2238aa35e138996c005a62f1e8430f801"
+FILES = (
+    "config.json",
+    "vocab.txt",
+    "nemo128.onnx",
+    "fp32/decoder_joint-model.onnx",
+    "fp32/decoder_joint-model.onnx.data",
+    "fp32/encoder-model.onnx",
+    "fp32/encoder-model.onnx.data.000",
+    "fp32/encoder-model.onnx.data.001",
+    "int8/decoder_joint-model.int8.onnx",
+    "int8/encoder-model.int8.onnx",
+)
+SUBFOLDERS = ("fp32", "int8")
+DEST = Path(__file__).resolve().parent.parent / "models" / "parakeet-ultra"
 
 
 def main() -> int:
@@ -17,13 +32,22 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="list files and whether each would be downloaded")
     args = parser.parse_args()
 
+    sizes = {info.path: info.size for info in HfApi().get_paths_info(REPO, list(FILES), revision=REVISION)}
+    for path in FILES:
+        # onnx-asr reads one flat folder; the repo keeps each precision in its own.
+        target = args.dest / Path(path).name
+        present = target.is_file() and target.stat().st_size == sizes[path]
+        if args.dry_run:
+            print(f"{'present ' if present else 'download'} {sizes[path] / 1e6:8.1f} MB  {path}")
+        elif not present:
+            os.replace(hf_hub_download(REPO, path, revision=REVISION, local_dir=args.dest), target)
     if args.dry_run:
-        for info in snapshot_download(REPO, local_dir=args.dest, dry_run=True):
-            size = f"{info.file_size / 1e6:8.1f} MB" if info.file_size else "        ?"
-            print(f"{'download' if info.will_download else 'present '} {size}  {info.filename}")
         return 0
 
-    print(f"model ready in {snapshot_download(REPO, local_dir=args.dest)}")
+    for folder in SUBFOLDERS:
+        if (args.dest / folder).is_dir():
+            (args.dest / folder).rmdir()
+    print(f"model ready in {args.dest}")
     return 0
 
 

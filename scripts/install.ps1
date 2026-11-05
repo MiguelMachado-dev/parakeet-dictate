@@ -34,7 +34,7 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $venvScripts = Join-Path $root ".venv\Scripts"
 $pythonw = Join-Path $venvScripts "pythonw.exe"
 $icon = Join-Path $root "assets\parakeet.ico"
-$model = Join-Path $root "models\parakeet-tdt-0.6b-v3"
+$model = Join-Path $root "models\parakeet-ultra"
 $appName = "Parakeet Dictate"
 $shell = New-Object -ComObject WScript.Shell
 

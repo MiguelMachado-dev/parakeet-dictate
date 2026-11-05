@@ -10,7 +10,7 @@ from pathlib import Path
 import onnx_asr
 
 ROOT = Path(__file__).resolve().parent.parent
-MODEL_DIR = ROOT / "models" / "parakeet-tdt-0.6b-v3"
+MODEL_DIR = ROOT / "models" / "parakeet-ultra"
 FIXTURES = ROOT / "tests" / "fixtures"
 PROVIDERS = {
     "cpu": ["CPUExecutionProvider"],

@@ -24,7 +24,7 @@
 # overlay = "fluid"
 
 # Model folder, relative to the project root or absolute.
-# model_dir = "models/parakeet-tdt-0.6b-v3"
+# model_dir = "models/parakeet-ultra"
 
 # Keep [postprocess], [server], [dictionary], and [[app_rules]] after the general settings: every
 # setting after a table header belongs to that table, until the next header.

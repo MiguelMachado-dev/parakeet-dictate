@@ -2,7 +2,7 @@ import DictateCore
 import FluidAudio
 import Foundation
 
-/// Parakeet Ultra, a post-training of the PC's Parakeet TDT 0.6B v3 with the same languages and decoder,
+/// Parakeet Ultra, a post-training of Parakeet TDT 0.6B v3 with the same languages and decoder,
 /// converted to Core ML and run on the Neural Engine by FluidAudio. FluidAudio measures it more accurate than v3
 /// in English and every FLEURS language at the same speed.
 actor LocalEngine {

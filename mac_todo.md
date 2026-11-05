@@ -2,7 +2,7 @@
 
 O app está em `mac/` (como compilar e usar: `mac/README.md`). Ele transcreve em um de dois lugares, escolhido no menu:
 
-- **Neste Mac**: Parakeet Ultra (pós-treino do Parakeet TDT 0.6B v3 do PC, mesmos idiomas) em Core ML pelo FluidAudio, e GLM direto do Mac com uma chave da Z.ai.
+- **Neste Mac**: Parakeet Ultra (pós-treino do Parakeet TDT 0.6B v3, mesmos idiomas) em Core ML pelo FluidAudio, e GLM direto do Mac com uma chave da Z.ai.
 - **No PC**: manda o áudio para o **Server for Mac** do app do Windows, que transcreve e pós-processa.
 
 Itens com [x] foram verificados. O resto está implementado e espera um teste de verdade, exceto o overlay, que ainda não começou.

@@ -84,7 +84,7 @@ class Config:
     append_space: bool = True
     # One of OVERLAY_CHOICES: a style name from styles.STYLES, or "off".
     overlay: str = DEFAULT_STYLE
-    model_dir: Path = ROOT / "models" / "parakeet-tdt-0.6b-v3"
+    model_dir: Path = ROOT / "models" / "parakeet-ultra"
     postprocess: PostprocessConfig = PostprocessConfig()
     server: ServerConfig = ServerConfig()
     app_rules: tuple[AppRule, ...] = ()
