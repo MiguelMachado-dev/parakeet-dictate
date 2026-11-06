@@ -1,4 +1,4 @@
-"""Runs the Windows app's server (src/parakeet_dictate/server.py) on the Mac with a stand-in model and GLM,
+"""Runs the Windows app's server, from its last Python version, on the Mac with a stand-in model and GLM,
 so the Mac client can be checked against the real request handling without the PC:
 
     uv run --no-project --python 3.12 --with numpy --with httpx2 --with pillow \
@@ -18,7 +18,10 @@ import types
 from pathlib import Path
 from typing import Literal
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from last_python import last_python_src  # noqa: E402
+
+sys.path.insert(0, last_python_src())
 
 
 def stub(name: str, **attributes: object) -> None:

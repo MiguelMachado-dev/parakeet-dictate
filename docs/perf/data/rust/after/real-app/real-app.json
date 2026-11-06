@@ -1,0 +1,42 @@
+[
+ {
+  "side": "python",
+  "ready": true,
+  "ready_s": 2.4855210999994597,
+  "working_set_mb": 1151.66796875,
+  "peak_working_set_mb": 1151.9296875,
+  "private_working_set_mb": 992.2109375,
+  "commit_mb": 5590.97265625,
+  "peak_commit_mb": 5591.29296875,
+  "cpu_s": 2.53125,
+  "handles": 610,
+  "threads": 22,
+  "gpu_dedicated_mb": 4115.546875,
+  "gpu_shared_mb": 76.0,
+  "modules": 141,
+  "exit": 0,
+  "quit_s": 0.595990099998744,
+  "errors": [],
+  "stopped": true
+ },
+ {
+  "side": "rust",
+  "ready": true,
+  "ready_s": 1.9355920999987575,
+  "working_set_mb": 1103.53125,
+  "peak_working_set_mb": 1119.6015625,
+  "private_working_set_mb": 953.6875,
+  "commit_mb": 5190.4140625,
+  "peak_commit_mb": 5207.37109375,
+  "cpu_s": 2.0,
+  "handles": 438,
+  "threads": 20,
+  "gpu_dedicated_mb": 3975.54296875,
+  "gpu_shared_mb": 76.0,
+  "modules": 89,
+  "exit": 0,
+  "quit_s": 0.21572889999879408,
+  "errors": [],
+  "stopped": true
+ }
+]

@@ -1,0 +1,80 @@
+[package]
+name = "parakeet-dictate"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.92"
+authors = ["Miguel Machado <hello@miguelmachado.dev>"]
+description = "Local push-to-talk dictation for Windows using NVIDIA Parakeet"
+default-run = "parakeet-dictate"
+publish = false
+
+[lib]
+name = "parakeet_dictate"
+path = "src/lib.rs"
+
+[[bin]]
+name = "parakeet-dictate"
+path = "src/main.rs"
+
+# Developer tools: the checks and the benchmark child processes. The installer ships neither.
+[[bin]]
+name = "parakeet-check"
+path = "src/bin/parakeet-check.rs"
+
+[[bin]]
+name = "parakeet-bench"
+path = "src/bin/parakeet-bench.rs"
+
+[dependencies]
+caseless = "0.2.2"
+cpal = "0.18.2"
+log = { version = "0.4", features = ["std"] }
+# load-dynamic keeps ONNX Runtime out of the build: the app loads Microsoft's onnxruntime.dll and its CUDA
+# provider from runtime\, the same 1.31 binaries the Python app ran, so transcripts stay identical.
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-31", "load-dynamic", "cuda"] }
+rustfft = "6.4.1"
+serde_json = { version = "1", features = ["preserve_order"] }
+toml = "0.9"
+toml_edit = "0.25"
+ureq = { version = "3.5", default-features = false, features = ["native-tls", "json"] }
+
+[dependencies.windows-sys]
+version = "0.61.2"
+features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Gdi",
+    "Win32_Media_Audio",
+    "Win32_Security",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_Com",
+    "Win32_System_DataExchange",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_ProcessStatus",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+    "Win32_UI_Controls",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_WindowsAndMessaging",
+]
+
+[dev-dependencies]
+tempfile = "3"
+
+[build-dependencies]
+winresource = "0.1.34"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = "symbols"

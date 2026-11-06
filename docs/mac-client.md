@@ -1,6 +1,6 @@
 # Mac client brief
 
-The app this brief asked for is now in [mac/](../mac/README.md). It also transcribes on the Mac itself, so it keeps the reducer's `Polishing` state for that mode; the HTTP contract below is unchanged.
+The app this brief asked for is now in [mac/](../mac/README.md). The brief was written against the Python app, so its file and line references point to commit 5d4e136; the Windows app is Rust now, and the HTTP contract is the same. It also transcribes on the Mac itself, so it keeps the reducer's `Polishing` state for that mode; the HTTP contract below is unchanged.
 
 You are building a native macOS menu-bar app that dictates through a Windows PC on the same network. The PC runs Parakeet Dictate, the Python app in this repository. It transcribes speech with NVIDIA Parakeet and cleans the transcript with GLM or Claude, using the provider, key, and settings in the PC's `config.toml`. The Mac's provider choice does not select the PC's. Your app owns the hotkey, the recording, the overlay, and the paste. The PC only turns audio into text.
 
