@@ -30,7 +30,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     LBS_NOTIFY, LR_DEFAULTSIZE, LoadImageW, MB_ICONQUESTION, MB_YESNO, MF_STRING, MINMAXINFO, MSG, MessageBoxW, MsgWaitForMultipleObjects,
     PM_REMOVE, PeekMessageW, PostQuitMessage, QS_ALLINPUT, RegisterClassExW, SB_BOTTOM, SB_LINEDOWN, SB_LINEUP, SB_PAGEDOWN, SB_PAGEUP,
     SB_THUMBTRACK, SB_TOP, SB_VERT, SCROLLINFO, SIF_ALL, SIF_DISABLENOSCROLL, SIF_PAGE, SIF_POS, SIF_RANGE, SM_CXSCREEN, SM_CYSCREEN, SW_ERASE,
-    SW_HIDE, SW_INVALIDATE, SW_RESTORE, SW_SCROLLCHILDREN, SW_SHOW, SWP_NOACTIVATE, SWP_NOZORDER, ScrollWindowEx, SendMessageW, SetForegroundWindow,
+    SW_HIDE, SW_INVALIDATE, SW_RESTORE, SW_SCROLLCHILDREN, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, ScrollWindowEx, SendMessageW, SetForegroundWindow,
     SetTimer, SetWindowPos, SetWindowTextW, ShowWindow, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_TOPALIGN, TrackPopupMenu, TranslateMessage,
     WM_CLOSE, WM_COMMAND, WM_CTLCOLORSTATIC, WM_DESTROY, WM_GETMINMAXINFO, WM_KEYDOWN, WM_MOUSEWHEEL, WM_NOTIFY, WM_QUIT, WM_SETFONT, WM_SETICON,
     WM_SIZE, WM_TIMER, WM_VSCROLL, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_EX_CLIENTEDGE, WS_EX_CONTROLPARENT,
@@ -649,6 +649,9 @@ impl Ui {
         self.build_dictionary(pages[2]);
         self.build_rules(pages[3]);
         self.build_server(pages[4]);
+        // Each new child goes below the ones before it, which leaves the pages under the tab control, and it
+        // paints its whole client area over them. Below the pages, WS_CLIPSIBLINGS keeps it off them.
+        unsafe { SetWindowPos(tabs, pages[4], 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
         *self.pages.borrow_mut() = pages;
         let status = self.label(main, "");
         self.status.set(status);
