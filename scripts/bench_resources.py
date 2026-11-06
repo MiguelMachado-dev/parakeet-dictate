@@ -11,10 +11,13 @@ overlay    Renders a scripted sequence of overlay frames in-process and times ea
 summary    Prints the medians of a results folder, per side.
 compare    Prints a Markdown table of one side's medians against another's, from one folder or two.
 
-Each side is a checkout's src folder, run with this venv through PYTHONPATH, so one command alternates
-between two versions of the app: --side base=<checkout>/src --side opt=src. Sides run as base, opt,
-base, opt, so drift and background load reach both alike. Results land in --out as one JSON file per
-process, with the source tree's digest, so the data proves which code each number came from.
+Each side is a Python checkout's src folder, run with this venv through PYTHONPATH, or a folder with the Rust
+build's parakeet-bench.exe and parakeet-dictate.exe, so one command alternates between two versions of the
+app: --side python=<checkout>/src --side rust=target/release. Sides run as python, rust, python, rust, so
+drift and background load reach both alike. A Rust child runs the same work on audio this process exports,
+and this process reads its counters from outside whenever it asks. Results land in --out as one JSON file
+per process, with a digest of the source tree or the executable, so the data proves which code each number
+came from.
 """
 
 import argparse
@@ -24,10 +27,13 @@ import json
 import os
 import re
 import statistics
+import struct
 import subprocess
 import sys
 import threading
 import time
+import unicodedata
+import wave
 from ctypes import wintypes
 from pathlib import Path
 
@@ -325,18 +331,93 @@ def overlay_loop_in_thread(stop: threading.Event):
 # --- parent ---------------------------------------------------------------------------------------------
 
 
+def is_rust(side: Path) -> bool:
+    return (side / "parakeet-bench.exe").is_file()
+
+
+def file_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+
+
 def parse_sides(values: list[str]) -> list[tuple[str, Path]]:
     sides = []
-    for value in values or [f"current={ROOT / 'src'}"]:
+    for value in values or [f"current={ROOT / 'target' / 'release'}"]:
         name, _, src = value.partition("=")
         src = Path(src).resolve()
-        if not (src / "parakeet_dictate" / "__init__.py").is_file():
-            raise SystemExit(f"--side {value}: no parakeet_dictate package in {src}")
+        if not is_rust(src) and not (src / "parakeet_dictate" / "__init__.py").is_file():
+            raise SystemExit(f"--side {value}: neither a parakeet_dictate package nor a Rust build in {src}")
         sides.append((name, src))
     return sides
 
 
+def export_audio(reps: int, path: Path) -> None:
+    """The clips for a Rust child, in the order of the Python child's fresh() calls, with the same random tails."""
+    import numpy as np
+
+    def read_fixture(name: str):
+        with wave.open(str(FIXTURES / f"{name}.wav")) as f:
+            return np.frombuffer(f.readframes(f.getnframes()), "<i2").astype(np.float32) / 32768
+
+    clips = build_clips(np, read_fixture)
+    tails = iter(range(1, 1_000_000))
+    rng = np.random.default_rng(11)
+
+    def fresh(name: str):
+        tail = (rng.standard_normal(round((0.05 + 0.0137 * next(tails)) * RATE)) * NOISE).astype(np.float32)
+        return np.concatenate([clips[name], tail])
+
+    def put(f, name: str, samples) -> None:
+        encoded = name.encode()
+        f.write(struct.pack("<I", len(encoded)) + encoded + struct.pack("<I", len(samples)))
+        f.write(np.asarray(samples, "<f4").tobytes())
+
+    with open(path, "wb") as f:
+        put(f, "speech", clips["mid"])
+        for name in CLIPS:
+            put(f, name, clips[name])
+        for _ in range(reps):
+            for name in CLIPS:
+                put(f, name, fresh(name))
+        for name in SAME_LENGTH_CLIPS:
+            put(f, name, fresh(name))
+        for _ in range(max(1, reps - 1)):
+            for name in OVERLAY_CLIPS:
+                put(f, name, fresh(name))
+        for _ in range(reps):
+            for name in DICTATION_CLIPS:
+                put(f, name, fresh(name))
+        for name in ("short", "en"):
+            put(f, name, fresh(name))
+
+
+def run_rust_child(command: list[str], stem: Path) -> tuple[dict, dict, int]:
+    """Run a parakeet-bench child, reading its counters each time it asks. Its result, snapshots, and exit code."""
+    json_out = stem.with_suffix(".child.json")
+    gpu = winstats.GpuMemory()
+    phases: dict[str, dict] = {}
+    with open(stem.with_suffix(".log"), "w", encoding="utf-8") as log:
+        process = subprocess.Popen([*command, "--json-out", str(json_out)], cwd=ROOT, stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE, stderr=log, text=True)
+        for line in process.stdout:
+            match line.split():
+                case ["snapshot", name, kind]:
+                    row = {**winstats.memory(process.pid), "threads": winstats.threads(process.pid),
+                           "since_start_s": winstats.seconds_since_start(process.pid)}
+                    if kind == "gpu":
+                        row.update(gpu.read(process.pid))
+                    phases[name] = row
+                    process.stdin.write("\n")
+                    process.stdin.flush()
+        code = process.wait()
+    gpu.close()
+    row = json.loads(json_out.read_text(encoding="utf-8")) if json_out.is_file() else {}
+    json_out.unlink(missing_ok=True)
+    return row, phases, code
+
+
 def side_sha(src: Path) -> str:
+    if is_rust(src):
+        src = ROOT / "src"
     marker = src.parent / "SOURCE_SHA"
     if marker.is_file():
         return marker.read_text().strip()
@@ -348,7 +429,13 @@ def side_sha(src: Path) -> str:
 def environment() -> dict:
     """Hardware and versions, for the record. Never the process environment: it can hold API keys."""
     import platform
-    from importlib.metadata import version
+    from importlib.metadata import PackageNotFoundError, version
+
+    def installed(name: str) -> str | None:
+        try:
+            return version(name)
+        except PackageNotFoundError:
+            return None
 
     gpu = subprocess.run(["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"],
                          capture_output=True, text=True)
@@ -358,7 +445,7 @@ def environment() -> dict:
         "cpu": platform.processor(),
         "logical_cpus": os.cpu_count(),
         "gpu": gpu.stdout.strip(),
-        "packages": {name: version(name) for name in ("onnxruntime-gpu", "onnx-asr", "numpy", "pillow", "httpx2")},
+        "packages": {name: installed(name) for name in ("onnxruntime-gpu", "onnx-asr", "numpy", "pillow", "httpx2")},
     }
 
 
@@ -384,6 +471,9 @@ def run_children(args: argparse.Namespace, kind: str, measure) -> None:
     (out / f"{kind}-meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     plan = [(name, src, "warmup") for _ in range(args.warmup) for name, src in sides]
     plan += [(name, src, "measured") for _ in range(args.runs) for name, src in sides]
+    args.audio = out / "exported-audio.bin"
+    if kind != "settings" and any(is_rust(src) for _, src in sides):
+        export_audio(getattr(args, "reps", 1), args.audio)
     for index, (name, src, role) in enumerate(plan):
         busy0 = winstats.system_cpu()
         load = machine_load()
@@ -395,9 +485,24 @@ def run_children(args: argparse.Namespace, kind: str, measure) -> None:
         path = out / f"{kind}-{index:02d}-{name}-{role}.json"
         path.write_text(json.dumps(row, indent=1, ensure_ascii=False), encoding="utf-8")
         print(f"[{index + 1}/{len(plan)}] {kind} {name} {role}: {headline(row)}", flush=True)
+    args.audio.unlink(missing_ok=True)
 
 
 def measure_model(args: argparse.Namespace, src: Path, stem: Path) -> dict:
+    if is_rust(src):
+        exe = src / "parakeet-bench.exe"
+        row, phases, code = run_rust_child([str(exe), "model", "--model-dir", args.model_dir, "--provider", args.provider,
+                                            "--reps", str(args.reps), "--audio", str(args.audio)], stem)
+        row["exit_code"] = code
+        if code or "idle_30s" not in phases:
+            return row
+        idle = phases.pop("idle")
+        row["idle_cpu_s"] = {"0_5s": phases["idle_5s"]["cpu_s"] - idle["cpu_s"],
+                             "5_30s": phases["idle_30s"]["cpu_s"] - phases["idle_5s"]["cpu_s"]}
+        row["phases"] = phases
+        row["source_digest"] = file_digest(exe)
+        row["performance_cores"] = winstats.performance_cores()
+        return row
     json_out = stem.with_suffix(".child.json")
     command = [sys.executable, str(Path(__file__)), "model-child", "--model-dir", args.model_dir,
                "--provider", args.provider, "--reps", str(args.reps), "--json-out", str(json_out)]
@@ -468,11 +573,16 @@ def measure_settings(args: argparse.Namespace, src: Path, stem: Path) -> dict:
     if held:
         kernel32.CloseHandle(held)
         raise SystemExit("A Settings window is open; close it first. Starting another would bring that one forward.")
-    package = src / "parakeet_dictate"
-    row = {"kind": "settings", "source": str(package), "source_digest": source_digest(package)}
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
+    if is_rust(src):
+        exe = src / "parakeet-dictate.exe"
+        row = {"kind": "settings", "source": str(exe), "source_digest": file_digest(exe)}
+        command, cwd = [str(exe), "--settings"], ROOT
+    else:
+        package = src / "parakeet_dictate"
+        row = {"kind": "settings", "source": str(package), "source_digest": source_digest(package)}
+        command, cwd = [str(Path(sys.executable).with_name("pythonw.exe")), "-m", "parakeet_dictate", "--settings"], src.parent
     t = time.perf_counter()
-    process = subprocess.Popen([str(pythonw), "-m", "parakeet_dictate", "--settings"], env=child_env(src), cwd=src.parent)
+    process = subprocess.Popen(command, env=child_env(src), cwd=cwd)
     try:
         while (found := settings_window({process.pid, *winstats.child_pids(process.pid)})) is None:
             if process.poll() is not None or time.perf_counter() - t > 30:
@@ -582,6 +692,15 @@ def run_overlay(args: argparse.Namespace) -> dict:
 
 
 def measure_overlay(args: argparse.Namespace, src: Path, stem: Path) -> dict:
+    if is_rust(src):
+        exe = src / "parakeet-bench.exe"
+        row, phases, code = run_rust_child([str(exe), "overlay", "--repeats", str(args.repeats), "--audio", str(args.audio)], stem)
+        row.setdefault("kind", "overlay")
+        row.setdefault("render", {})
+        row["exit_code"] = code
+        row["source_digest"] = file_digest(exe)
+        row["threads"] = phases.get("threads", {}).get("threads")
+        return row
     json_out = stem.with_suffix(".child.json")
     command = [sys.executable, str(Path(__file__)), "overlay-child", "--repeats", str(args.repeats), "--json-out", str(json_out)]
     with open(stem.with_suffix(".log"), "w", encoding="utf-8") as log:
@@ -632,10 +751,21 @@ def summarize(out: Path) -> dict:
     return summary
 
 
-def model_metrics(rows: list[dict]) -> dict[str, list[float]]:
-    # check_model imports onnx_asr, so only the parent may import it: a child must import the app first.
-    from check_model import word_error_rate, words
+def words(text: str) -> list[str]:
+    return re.findall(r"\w+", unicodedata.normalize("NFC", text.lower()))
 
+
+def word_error_rate(ref: list[str], hyp: list[str]) -> float:
+    prev = list(range(len(hyp) + 1))
+    for i, r in enumerate(ref, 1):
+        cur = [i] + [0] * len(hyp)
+        for j, h in enumerate(hyp, 1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (r != h))
+        prev = cur
+    return prev[-1] / max(len(ref), 1)
+
+
+def model_metrics(rows: list[dict]) -> dict[str, list[float]]:
     metrics: dict[str, list[float]] = {}
 
     def add(key: str, value: float) -> None:

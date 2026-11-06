@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Prints tables.md: every table docs/perf/README.md quotes, in full, under the command that prints it.
 #   docs/perf/tables.sh > docs/perf/tables.md
-# Set PY to run the harness with another interpreter than `uv run python`.
+# Set PY to run the harness with another interpreter than `python`.
 cd "$(dirname "$0")/../.." || exit 1
-PY=${PY:-uv run python}
+PY=${PY:-python}
 D=docs/perf/data
 
 table() {

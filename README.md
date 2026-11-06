@@ -1,50 +1,44 @@
 # Parakeet Dictate
 
-Local push-to-talk dictation for Windows 11. Hold Right Ctrl, speak English or Portuguese, release, and the text is pasted into the focused app. Speech recognition runs on your machine with [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra), Moondream's post-training of NVIDIA Parakeet TDT 0.6B v3, through [onnx-asr](https://github.com/istupakov/onnx-asr), on the GPU when CUDA works and on the CPU otherwise.
+Local push-to-talk dictation for Windows 11. Hold Right Ctrl, speak English or Portuguese, release, and the text is pasted into the focused app. Speech recognition runs on your machine with [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra), Moondream's post-training of NVIDIA Parakeet TDT 0.6B v3, through ONNX Runtime, on the GPU when CUDA works and on the CPU otherwise. The Windows app is written in Rust, and the Mac app in [mac/](mac/README.md) in Swift.
 
 ## Set up
 
-You need [uv](https://docs.astral.sh/uv/) and, for GPU inference, an NVIDIA driver recent enough for CUDA 13. The CUDA and cuDNN libraries come from pip wheels.
+You need [Rust](https://rustup.rs) and, for GPU inference, an NVIDIA driver recent enough for CUDA 13. The Installer below does these steps for you.
 
-1. Install the dependencies:
+1. Build the app:
 
 	```powershell
-	uv sync
+	cargo build --release
 	```
 
-2. Download the model (about 3.2 GB, fp32 and int8) into `models\parakeet-ultra`. Rerunning the command skips files that are already there.
+2. Download the ONNX Runtime and CUDA libraries (1.3 GB) into `runtime` and the model (about 3.2 GB, fp32 and int8) into `models\parakeet-ultra`. Each file is checked against its SHA-256, and rerunning the command skips files that are already there.
 
 	```powershell
-	uv run python scripts/download_model.py
+	.\scripts\fetch_assets.ps1
 	```
 
 3. Confirm the model loads on the GPU and transcribes the test clips:
 
 	```powershell
-	uv run python scripts/check_model.py --provider cuda --quantization none
+	target\release\parakeet-check.exe model --provider cuda
 	```
 
 ## Run
 
-Start the app with a console:
+Start the app. It runs in the background, with no console window:
 
 ```powershell
-uv run parakeet-dictate
-```
-
-Start it in the background, with no console window:
-
-```powershell
-.venv\Scripts\pythonw.exe -m parakeet_dictate
+target\release\parakeet-dictate.exe
 ```
 
 Stop the running instance:
 
 ```powershell
-uv run parakeet-dictate --quit
+target\release\parakeet-dictate.exe --quit
 ```
 
-A tray icon shows the state. A hollow ring means the model is loading, which takes about 7 seconds. Gray means ready, red means recording, amber means transcribing, and violet means the selected provider is post-processing the transcript. A red ring means startup failed. Hover over the icon to see the state and the active provider (`CUDA` or `CPU int8`). Right-click it for **Post-process with GLM/Claude**, **Overlay**, **Open log**, and **Quit**. Only one instance runs at a time. If you start the app while it runs, the running app shows a notification that it is already running, and the new launch exits.
+A tray icon shows the state. A hollow ring means the model is loading, which takes about 2 seconds. Gray means ready, red means recording, amber means transcribing, and violet means the selected provider is post-processing the transcript. A red ring means startup failed. Hover over the icon to see the state and the active provider (`CUDA` or `CPU int8`). Right-click it for **Post-process with GLM/Claude**, **Overlay**, **Open log**, and **Quit**. Only one instance runs at a time. If you start the app while it runs, the running app shows a notification that it is already running, and the new launch exits.
 
 ## Dictate
 
@@ -58,7 +52,7 @@ The microphone opens when you press the hotkey and closes when the recording sto
 
 ## Settings
 
-Double-click the tray icon, or right-click it and choose **Settings…**. You can also run `uv run parakeet-dictate --settings` to open the window. Opening it again brings the existing window forward.
+Double-click the tray icon, or right-click it and choose **Settings…**. You can also run `parakeet-dictate.exe --settings` to open the window. Opening it again brings the existing window forward.
 
 - **General:** the dictation hotkey, GPU or CPU, overlay, sounds, trailing space, tap threshold, and model folder.
 - **Post-processing:** GLM or Claude, separate masked API keys, model, thinking, effort, timeout, and extra instructions. **Test provider** sends a short sample with the values in the window, without saving them.
@@ -78,7 +72,7 @@ While you dictate, a small window above the taskbar shows your microphone level 
 - **It waits 250 ms before it appears.** A shortcut such as Right Ctrl+C never flashes it. The start tone plays at once. If you press another key after the overlay appears, it disappears at once.
 - **It costs nothing while hidden.** Its thread waits for the next dictation and uses no CPU.
 
-It comes in two styles. `fluid` draws translucent ribbons in a night-blue capsule, and `bars` draws mirrored bars in a smoked-glass capsule. Pick one with `overlay = "fluid"` or `overlay = "bars"` in `config.toml`, or turn it off with `overlay = "off"`. To switch while the app runs, right-click the tray icon and pick **Overlay** > **Fluid**, **Bars**, or **Off**. The change applies at once, even in the middle of a dictation, and the app saves it in `tray_choices.json` ahead of `config.toml`. To preview a style without dictating, run `uv run python scripts/preview_overlay.py --style bars --out previews/bars` and open `previews/bars/video.mp4`.
+It comes in two styles. `fluid` draws translucent ribbons in a night-blue capsule, and `bars` draws mirrored bars in a smoked-glass capsule. Pick one with `overlay = "fluid"` or `overlay = "bars"` in `config.toml`, or turn it off with `overlay = "off"`. To switch while the app runs, right-click the tray icon and pick **Overlay** > **Fluid**, **Bars**, or **Off**. The change applies at once, even in the middle of a dictation, and the app saves it in `tray_choices.json` ahead of `config.toml`.
 
 ## Post-process with GLM or Claude
 
@@ -96,7 +90,7 @@ Z.ai is the default. Open **Settings… > Post-processing**, select the provider
 3. Send five sample dictations through GLM and check each reply:
 
 	```powershell
-	uv run python scripts/check_polish.py
+	target\release\parakeet-check.exe polish
 	```
 
 4. Restart the app. Post-processing is on by default once the app finds a key. The `ready` line in `dictate.log` states whether it is on.
@@ -112,7 +106,7 @@ This selects `claude-haiku-5-5`, Anthropic's Messages API, thinking off, and low
 
 Claude accepts `thinking = true` and `effort = "low"`, `"medium"`, `"high"`, `"xhigh"`, or `"max"`. The last two require thinking on. Sonnet 5.5 uses `between_tools` to turn thinking off and enables the API's server-side fallback; other models use `disabled` and no fallback. A model that requires thinking needs `thinking = true`. See Anthropic's [thinking settings](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5) and [fallback contract](https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback).
 
-Run `uv run python scripts/check_polish.py` to check the selected provider with five sample dictations. `scripts/check_glm.py` remains an alias. Restart the app after changing the config or key.
+Run `parakeet-check.exe polish` to check the selected provider with five sample dictations. Restart the app after changing the config or key.
 
 With post-processing on:
 
@@ -232,21 +226,21 @@ Double-click `Install.cmd` in the project folder, or run:
 .\scripts\install.ps1
 ```
 
-The app keeps running from the project folder and its `.venv`. The installer does the following:
+The app keeps running from the project folder. The installer does the following:
 
-- It runs `uv sync` if `.venv` is missing, and downloads the model, about 3 GB, if `models\parakeet-ultra` is missing.
+- It builds `parakeet-dictate.exe` into the project folder with cargo, and downloads what is missing from `runtime` and `models\parakeet-ultra`, about 4 GB in all. It stops if the app is running: quit it from the tray first.
 - It puts a **Parakeet Dictate** shortcut on the Desktop and in the Start menu. When you start the app from either one, it shows a notification once the model is loaded.
 - It adds Parakeet Dictate to **Settings** > **Apps** > **Installed apps**.
 
 Running the installer again gives the same result. The icon is `assets\parakeet.ico`, drawn by `scripts/make_icon.py`.
 
-To also start the app at sign-in, with no notification, add `-Startup`. A later run without `-Startup` keeps the sign-in shortcut.
+To also start the app at sign-in, with no notification, add `-Startup`. A later run without `-Startup` keeps the sign-in shortcut, and moves one that starts the old Python app to the executable.
 
 ```powershell
 .\scripts\install.ps1 -Startup
 ```
 
-To uninstall, click **Uninstall** next to Parakeet Dictate in **Installed apps**, or run `.\scripts\install.ps1 -Uninstall`. It stops the app, removes the shortcuts that start this folder's app, and removes the Installed apps entry. It leaves the project folder, the model, and `tray_choices.json` in place. Delete the folder to remove them too.
+To uninstall, click **Uninstall** next to Parakeet Dictate in **Installed apps**, or run `.\scripts\install.ps1 -Uninstall`. It stops the app, removes the shortcuts that start this folder's app, and removes the Installed apps entry. It leaves the project folder, the runtime, the model, and `tray_choices.json` in place. Delete the folder to remove them too.
 
 ## Troubleshoot
 
@@ -256,15 +250,16 @@ These scripts check each part on its own:
 
 | Command | Checks |
 | --- | --- |
-| `uv run pytest` | The dictation state machine, config parsing, the saved tray choices, the tray's Overlay menu, the already-running and ready notifications, the GLM and Claude clients against simulated API responses, the overlay's timing and placement, and one pixel drawn through the overlay window and read back from the desktop. |
-| `uv run python scripts/mic_check.py` | Records 2 s from the default microphone and prints the device, rate, frame count, level, the overlay meter's readings, and what the audio callback costs. |
-| `uv run python scripts/overlay_check.py` | Shows the overlay through 10 scripted dictations and a 300-frame recording. Prints GDI and USER handle counts, frame rate, render time, and the overlay thread's CPU while hidden. Add `--style bars` to measure the other style. It then switches one recording fluid, bars, off, fluid as the tray does, and checks that only the chosen style draws, that off hides the window, and that handle counts stay flat. Add `--screenshots <folder>` to save a desktop grab per style. It sends no keys. |
-| `uv run python scripts/bench_hook_latency.py` | Times key events from send to the keyboard hook with the overlay hidden and animating. Add `--style bars` to try another overlay style. It sends F24 to a small window; stop the app first and do not use the keyboard or mouse while it runs. |
-| `uv run python scripts/check_model.py --provider cuda --quantization none` | Model load, provider, accuracy, and latency on the test clips. |
-| `uv run python scripts/check_polish.py` | Sends five sample dictations through the selected provider and checks each reply. Add `--text "..."` to try your own. |
-| `uv run python scripts/e2e_check.py` | The full pipeline with fixture audio in place of the microphone, with and without GLM, including the fallbacks, Esc, and shortcuts. It opens a small window, sends the hotkey, and checks what gets pasted. It also checks that the overlay never takes focus or clicks, shows on the right monitor, and never appears for a shortcut. Add `--screenshots <folder>` to save desktop grabs of the overlay while it records. It needs `ZAI_API_KEY`. Stop the app first. Do not use the keyboard or mouse while it runs. |
-| `uv run python scripts/bench_latency.py` | Transcription latency on audio lengths the model has not seen since warm-up. |
-| `uv run python scripts/bench_preconnect.py` | Key-up to paste for polished dictations after 35 s idle, with and without pre-connecting to Z.ai. It takes about 7 minutes and installs no keyboard hook. |
+| `cargo test` | The dictation state machine, config parsing, the saved tray choices, the tray's Overlay menu, the Settings form, the GLM and Claude clients against simulated API responses, the server for Mac, the overlay's timing and placement, and one pixel drawn through the overlay window and read back from the desktop. |
+| `parakeet-check mic` | Records 2 s from the default microphone and prints the device, rate, frame count, level, and the overlay meter's readings. |
+| `parakeet-check overlay` | Shows the overlay through 10 scripted dictations and a 300-frame recording. Prints GDI and USER handle counts, frame rate, render time, and the overlay thread's CPU while hidden. Add `--style bars` to measure the other style. It then switches one recording fluid, bars, off, fluid as the tray does, and checks that only the chosen style draws, that off hides the window, and that handle counts stay flat. It sends no keys. |
+| `parakeet-check hook-latency` | Times key events from send to the keyboard hook with the overlay hidden and animating. Add `--style bars` to try another overlay style. It sends F24 to a small window; stop the app first and do not use the keyboard or mouse while it runs. |
+| `parakeet-check model --provider cuda` | Model load, provider, accuracy, and latency on the test clips. |
+| `parakeet-check polish` | Sends five sample dictations through the selected provider and checks each reply. Add `--text "..."` to try your own. |
+| `parakeet-check server --provider cuda` | Runs the server for Mac on 127.0.0.1 with the real model and posts the test clips to it, as the Mac does. |
+| `parakeet-check e2e` | The full pipeline with fixture audio in place of the microphone, with a local stand-in for the provider, including the fallbacks, Esc, and shortcuts. It opens a small window, sends the hotkey, and checks what gets pasted. It also checks that the overlay never takes focus or clicks, shows on the right monitor, and never appears for a shortcut. Stop the app first. Do not use the keyboard or mouse while it runs. |
+
+`parakeet-check` is built with the app, in `target\release`. `scripts/bench_resources.py` measures memory, GPU memory, threads, CPU time, startup and latency; see [docs/perf](docs/perf/README.md).
 
 ## Known limits
 
@@ -272,7 +267,6 @@ These scripts check each part on its own:
 - **Admin windows do not work.** Windows blocks the keyboard hook and the paste for apps that run as administrator, unless this app runs as administrator too.
 - **Esc reaches the app in hands-free mode.** While you hold the hotkey, the app swallows Esc so that Ctrl+Esc does not open Start. While post-processing, it swallows Esc because that Esc pastes the raw transcript. In hands-free recording the focused app also receives the Esc.
 - **CUDA fallback happens only at startup.** If CUDA fails while the app runs, for example after a driver reset, each dictation plays the error tone until you restart the app.
-- **The first moments after the press are not recorded.** Opening the microphone takes about 60 ms.
+- **The first moments after the press are not recorded.** Opening the microphone takes about 30 ms.
 - **Hands-free has no time limit.** A forgotten hands-free recording keeps the microphone open until the next press. Recordings of several minutes are untested.
 - **A failed paste shows as done on the overlay.** If the clipboard stays locked and the paste fails, the error tone plays, but the overlay has already started its done beat.
-- **Device names are truncated.** The Windows MME audio API cuts names to 31 characters, so `dictate.log` can show `Voice Chat Mic (BEACN Mix Creat`.

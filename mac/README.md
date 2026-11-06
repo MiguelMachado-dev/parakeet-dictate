@@ -95,7 +95,7 @@ With only the Command Line Tools, `swift test` sometimes fails with "plugin for 
 
 The log is `~/Library/Logs/ParakeetDictate.log` (**Open Log** in the menu). Like the Windows log, it records timings and lengths, never the text.
 
-The overlay styles are pixel ports of `src/parakeet_dictate/styles`. To check them against the Python after a change:
+The overlay styles are pixel ports of the Windows app's Python styles. The Windows app is Rust now, so references here and in the Swift sources to `src/parakeet_dictate`, `*.py` and `tests/test_*.py` point to its last Python version, commit 5d4e136. The reference frames still come from that commit, which the script reads from git. To check the styles after a change:
 
 ```sh
 uv run --no-project --python 3.12 --with numpy --with pillow python mac/scripts/overlay_reference.py /tmp/overlay-ref

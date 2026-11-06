@@ -1,5 +1,7 @@
 # Resource and latency measurements
 
+The Windows app is Rust now; [`rust-rewrite.md`](rust-rewrite.md) compares it with the last Python version. The rest of this page measures the Python app.
+
 This folder holds before-and-after measurements of the Windows app's memory, GPU memory, threads, CPU time, startup and latency, the changes they justified, and the raw data behind every number. The baseline is da3c189. `scripts/bench_resources.py` produced the data in `data/baseline` and `data/stages` and printed every table below. [`tables.md`](tables.md) holds the complete tables, with ranges, p95 and sample counts, under the commands that print them. `data/screens` holds the exploratory screens behind each decision, and `decisions.tsv` the decision log.
 
 ## Summary

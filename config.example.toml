@@ -1,5 +1,5 @@
 # Use Settings from the tray, or copy this file to config.toml and uncomment settings to change.
-# Restart the app after editing: run `uv run parakeet-dictate --quit`, then start it again.
+# Restart the app after editing: run `parakeet-dictate.exe --quit`, then start it again.
 
 # Hold to talk; tap quickly for hands-free. Any pynput Key name, for example
 # ctrl_r, ctrl_l, shift_r, f13 to f24, pause, scroll_lock, insert.

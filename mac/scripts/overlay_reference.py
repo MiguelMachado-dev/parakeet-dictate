@@ -12,7 +12,10 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from last_python import last_python_src  # noqa: E402
+
+sys.path.insert(0, last_python_src())
 
 from parakeet_dictate.overlay_frame import BEAT_S, OverlayFrame, Phase  # noqa: E402
 from parakeet_dictate.styles import STYLES  # noqa: E402

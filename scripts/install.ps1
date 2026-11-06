@@ -3,14 +3,15 @@
 Installs Parakeet Dictate for the current user, or uninstalls it.
 
 .DESCRIPTION
-The app keeps running from this project folder and its .venv. Install sets up the .venv and the
-model when either is missing, puts a "Parakeet Dictate" shortcut on the Desktop and in the Start
-menu, and adds an entry to Settings > Apps > Installed apps that runs this script with -Uninstall.
-Running it again gives the same result. -Startup also adds a shortcut that starts the app silently
-at sign-in; without -Startup, an existing sign-in shortcut stays as it is.
+The app keeps running from this project folder. Install builds parakeet-dictate.exe into it with cargo,
+downloads the runtime and the model when they are missing, puts a "Parakeet Dictate" shortcut on the
+Desktop and in the Start menu, and adds an entry to Settings > Apps > Installed apps that runs this
+script with -Uninstall. Running it again gives the same result, and picks up a newer source. -Startup
+also adds a shortcut that starts the app silently at sign-in; without -Startup, an existing sign-in
+shortcut stays as it is, unless it starts the old Python app from this folder.
 
 -Uninstall stops the app if it runs from this folder, removes the shortcuts that start this
-folder's app, and removes the Installed apps entry. It leaves the folder, the model and
+folder's app, and removes the Installed apps entry. It leaves the folder, the runtime, the model and
 tray_choices.json in place.
 
 The folder and registry parameters exist so a test can point the script at temporary places.
@@ -31,9 +32,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$venvScripts = Join-Path $root ".venv\Scripts"
-$pythonw = Join-Path $venvScripts "pythonw.exe"
+$exe = Join-Path $root "parakeet-dictate.exe"
+$pythonw = Join-Path $root ".venv\Scripts\pythonw.exe"
 $icon = Join-Path $root "assets\parakeet.ico"
+$runtime = Join-Path $root "runtime"
 $model = Join-Path $root "models\parakeet-ultra"
 $appName = "Parakeet Dictate"
 $shell = New-Object -ComObject WScript.Shell
@@ -46,7 +48,7 @@ function Set-Link([string]$dir, [string]$arguments) {
     New-Item -ItemType Directory -Force $dir | Out-Null
     $path = Get-LinkPath $dir
     $link = $shell.CreateShortcut($path)
-    $link.TargetPath = $pythonw
+    $link.TargetPath = $exe
     $link.Arguments = $arguments
     $link.WorkingDirectory = $root
     $link.IconLocation = "$icon,0"
@@ -55,23 +57,15 @@ function Set-Link([string]$dir, [string]$arguments) {
     "Shortcut: $path"
 }
 
-function Invoke-Uv {
-    if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-        throw "uv is not installed. Install it from https://docs.astral.sh/uv/ and run this again."
-    }
-    uv --directory $root @args
-    if ($LASTEXITCODE -ne 0) {
-        throw "uv $args failed with exit code $LASTEXITCODE."
-    }
+function Test-AppRunning {
+    @(Get-CimInstance Win32_Process -Filter "Name = 'parakeet-dictate.exe'" | Where-Object {
+        $_.ExecutablePath -ieq $exe
+    }).Count -gt 0
 }
 
 if ($Uninstall) {
-    $running = @(Get-CimInstance Win32_Process | Where-Object {
-        $_.ExecutablePath -and $_.ExecutablePath.StartsWith("$venvScripts\", [StringComparison]::OrdinalIgnoreCase) -and
-        $_.CommandLine -match "parakeet[_-]dictate"
-    })
-    if ($running.Count -gt 0) {
-        & (Join-Path $venvScripts "python.exe") -m parakeet_dictate --quit
+    if (Test-AppRunning) {
+        & $exe --quit
         "Asked the running app to quit."
     } else {
         "The app is not running from $root."
@@ -83,7 +77,7 @@ if ($Uninstall) {
             continue
         }
         $target = $shell.CreateShortcut($path).TargetPath
-        if ($target -ieq $pythonw) {
+        if ($target -ieq $exe -or $target -ieq $pythonw) {
             Remove-Item -LiteralPath $path
             "Removed $path"
         } else {
@@ -99,26 +93,38 @@ if ($Uninstall) {
     if (Get-NetFirewallRule -DisplayName "Parakeet Dictate (Mac)" -ErrorAction SilentlyContinue) {
         "Kept the firewall rule 'Parakeet Dictate (Mac)'. Remove it with .\scripts\allow_mac.ps1 -Remove"
     }
-    "Left in place: the project folder $root, the model in $model, and tray_choices.json."
+    "Left in place: the project folder $root, the runtime, the model in $model, and tray_choices.json."
     return
 }
 
-if (-not (Test-Path $pythonw)) {
-    "Installing the dependencies with uv sync."
-    Invoke-Uv sync
+if (Test-AppRunning) {
+    throw "Parakeet Dictate is running from this folder. Quit it from the tray and run this again."
 }
-if (-not (Test-Path $model)) {
-    "Downloading the model, about 3 GB. Rerunning skips the files already downloaded."
-    Invoke-Uv run python scripts/download_model.py
+if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
+    if (-not (Test-Path $exe)) {
+        throw "Rust is not installed. Install it from https://rustup.rs and run this again."
+    }
+    "Rust is not installed, so this keeps the existing $exe."
+} else {
+    & cargo build --release --locked --bin parakeet-dictate --manifest-path (Join-Path $root "Cargo.toml")
+    if ($LASTEXITCODE -ne 0) {
+        throw "cargo build failed with exit code $LASTEXITCODE."
+    }
+    Copy-Item -LiteralPath (Join-Path $root "target\release\parakeet-dictate.exe") -Destination $exe -Force
+}
+if (-not ((Test-Path (Join-Path $runtime "onnxruntime.dll")) -and (Test-Path (Join-Path $model "config.json")))) {
+    "Downloading the runtime and the model, about 4 GB. Rerunning skips the files already downloaded."
+}
+& (Join-Path $PSScriptRoot "fetch_assets.ps1") -Root $root
+
+Set-Link $DesktopDir "--notify-ready"
+Set-Link $StartMenuDir "--notify-ready"
+$startupLink = Get-LinkPath $StartupDir
+if ($Startup -or ((Test-Path -LiteralPath $startupLink) -and $shell.CreateShortcut($startupLink).TargetPath -ieq $pythonw)) {
+    Set-Link $StartupDir ""
 }
 
-Set-Link $DesktopDir "-m parakeet_dictate --notify-ready"
-Set-Link $StartMenuDir "-m parakeet_dictate --notify-ready"
-if ($Startup) {
-    Set-Link $StartupDir "-m parakeet_dictate"
-}
-
-$pyproject = Get-Content -Raw (Join-Path $root "pyproject.toml")
+$cargo = Get-Content -Raw (Join-Path $root "Cargo.toml")
 $uninstallCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Uninstall"
 # An entry made for other folders or another key must uninstall from those, not the real ones.
 foreach ($param in "DesktopDir", "StartMenuDir", "StartupDir", "RegistryKey") {
@@ -129,8 +135,8 @@ foreach ($param in "DesktopDir", "StartMenuDir", "StartupDir", "RegistryKey") {
 $strings = [ordered]@{
     DisplayName     = $appName
     DisplayIcon     = $icon
-    DisplayVersion  = [regex]::Match($pyproject, '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
-    Publisher       = [regex]::Match($pyproject, '(?m)^authors\s*=\s*\[\s*\{\s*name\s*=\s*"([^"]+)"').Groups[1].Value
+    DisplayVersion  = [regex]::Match($cargo, '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
+    Publisher       = [regex]::Match($cargo, '(?m)^authors\s*=\s*\["([^<"]+?)\s*[<"]').Groups[1].Value
     InstallLocation = $root
     UninstallString = $uninstallCommand
 }

@@ -15,3 +15,6 @@ server_token.txt.tmp
 previews/
 mac/.build/
 mac/build/
+runtime/
+target/
+/parakeet-dictate.exe

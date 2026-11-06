@@ -1,0 +1,36 @@
+{
+ "kind": "settings",
+ "source": "C:\\Users\\migue\\AppData\\Local\\Temp\\parakeet-perf\\sides\\python\\src\\parakeet_dictate",
+ "source_digest": "f3dddd784c3676e1",
+ "window_s": 0.34125940000012633,
+ "working_set_mb": 53.2265625,
+ "peak_working_set_mb": 53.2265625,
+ "private_working_set_mb": 30.08984375,
+ "commit_mb": 33.23828125,
+ "peak_commit_mb": 33.296875,
+ "cpu_s": 0.34375,
+ "handles": 243,
+ "threads": 7,
+ "dpi": 96,
+ "window_size": [
+  836,
+  759
+ ],
+ "launcher_working_set_mb": 7.296875,
+ "launcher_commit_mb": 2.00390625,
+ "modules": 71,
+ "onnxruntime_loaded": false,
+ "cuda_loaded": false,
+ "portaudio_loaded": false,
+ "openblas_loaded": true,
+ "exit_code": 0,
+ "side": "python",
+ "sha": "5d4e136892ae43063fb6c45f8a9393f803a669ef",
+ "role": "measured",
+ "index": 4,
+ "wall_s": 1.9837197000015294,
+ "machine_before": {
+  "gpu": "0 %, 2852 MiB, P0"
+ },
+ "machine_cpu_busy": 0.087984496124031
+}
